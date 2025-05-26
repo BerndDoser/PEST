@@ -113,7 +113,6 @@ def create_2Dmap(
     output_format,
     debug,
 ):
-
     if fov_unit == "kpc":
         max_rad = fov / 2.0
 
@@ -137,7 +136,7 @@ def create_2Dmap(
             f" min, median, max radius: {np.min(rad):.1f},{np.median(rad):.1f},{np.max(rad):.1f} kpc"
         )
 
-    print(f" FOV: {2*max_rad:.1f} kpc")
+    print(f" FOV: {2 * max_rad:.1f} kpc")
 
     if orientation in ["face-on", "original", "random"]:
         indy = 1
@@ -257,7 +256,6 @@ def create_opticalimage(
     output_format,
     debug,
 ):
-
     bands_ind = map_bands_to_values(bands)
 
     if fov_unit == "kpc":
@@ -283,7 +281,7 @@ def create_opticalimage(
             f" min, median, max radius: {np.min(rad):.1f},{np.median(rad):.1f},{np.max(rad):.1f} kpc"
         )
 
-    print(f" FOV: {2*max_rad:.1f} kpc")
+    print(f" FOV: {2 * max_rad:.1f} kpc")
 
     if orientation in ["face-on", "original", "random"]:
         indy = 1
@@ -407,7 +405,6 @@ def create_cube_PPP(
     output_format,
     debug,
 ):
-
     if fov_unit == "kpc":
         max_rad = fov / 2.0
 
@@ -431,7 +428,7 @@ def create_cube_PPP(
             f" min, median, max radius: {np.min(rad):.1f},{np.median(rad):.1f},{np.max(rad):.1f} kpc"
         )
 
-    print(f" FOV: {2*max_rad:.1f} kpc")
+    print(f" FOV: {2 * max_rad:.1f} kpc")
 
     if orientation in ["face-on", "original", "random"]:
         cube_x = particles["Coordinates"][:, 0]
@@ -533,7 +530,7 @@ def create_cube_PPP(
         cube = img_as_float(cube)
         imsave(filename + ".tiff", cube, compression="lzw")
     size = os.path.getsize(filename)
-    print(f" saved PPP cube to {filename} with size {size/1024:.3f} KB")
+    print(f" saved PPP cube to {filename} with size {size / 1024:.3f} KB")
 
     return
 
@@ -555,7 +552,6 @@ def create_cube_PPV(
     output_format,
     debug,
 ):
-
     if fov_unit == "kpc":
         max_rad = fov / 2.0
 
@@ -584,7 +580,7 @@ def create_cube_PPV(
             f" min, median, max v_rad: {np.min(vrad):.1f},{np.median(vrad):.1f},{np.max(vrad):.1f} kpc"
         )
 
-    print(f" FOV: {2*max_rad:.1f} kpc")
+    print(f" FOV: {2 * max_rad:.1f} kpc")
 
     if orientation in ["face-on", "original", "random"]:
         cube_x = particles["Coordinates"][:, 0]
@@ -687,7 +683,7 @@ def create_cube_PPV(
         cube = img_as_float(cube)
         imsave(filename + ".tiff", cube, compression="lzw")
     size = os.path.getsize(filename)
-    print(f" saved PPV cube to {filename} with size {size/1024:.3f} KB")
+    print(f" saved PPV cube to {filename} with size {size / 1024:.3f} KB")
 
     return
 
