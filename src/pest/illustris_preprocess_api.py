@@ -195,10 +195,7 @@ def data_preprocess_api(
 
     # form the search_query string
     search_query = (
-        "?mass_stars__gt="
-        + str(min_mass / mass_units_msun)
-        + "&mass_stars__lt="
-        + str(max_mass / mass_units_msun)
+        "?mass_stars__gt=" + str(min_mass / mass_units_msun) + "&mass_stars__lt=" + str(max_mass / mass_units_msun)
     )
     subhalos = get(
         url + "snapshots/" + str(snapshot) + "/subhalos/" + search_query,
@@ -219,7 +216,6 @@ def data_preprocess_api(
     var1 = []
 
     for i in range(subhalos["count"]):
-
         if debug:
             print(subhalos["results"][i]["url"])
 
@@ -261,9 +257,7 @@ def data_preprocess_api(
 
         # print galaxy info
         print("\n Galaxy:", i, " groupID:", groupid[-1], " subID:", subid[-1])
-        print(
-            f" Mstars = {m_stars[-1]:.2e} Ms, Rhalf = {r_half[-1]:.2f} kpc, Mtot = {mass_tot:.2e} Ms"
-        )
+        print(f" Mstars = {m_stars[-1]:.2e} Ms, Rhalf = {r_half[-1]:.2f} kpc, Mtot = {mass_tot:.2e} Ms")
 
         # load galaxy particles
         # cutout = get(subhalo["cutouts"]["subhalo"], api_key, {component: comp_list})  # to load only specific components
@@ -272,15 +266,10 @@ def data_preprocess_api(
         if debug:
             print(f" Npart:{subhalo['len_stars']}")
 
-        subhalo_pos = (
-            np.array([subhalo["pos_x"], subhalo["pos_y"], subhalo["pos_z"]])
-            * dist_units_kpc
-        )
+        subhalo_pos = np.array([subhalo["pos_x"], subhalo["pos_y"], subhalo["pos_z"]]) * dist_units_kpc
         subhalo_vel = np.array([subhalo["vel_x"], subhalo["vel_y"], subhalo["vel_z"]])
         if debug:
-            print(
-                f" subhalo position: {subhalo_pos[0]:.2f},{subhalo_pos[1]:.2f},{subhalo_pos[2]:.2f}"
-            )
+            print(f" subhalo position: {subhalo_pos[0]:.2f},{subhalo_pos[1]:.2f},{subhalo_pos[2]:.2f}")
 
         particles = {}
         with h5py.File(cutout, "r") as f:
@@ -294,15 +283,13 @@ def data_preprocess_api(
 
         # center coordinates and adjust for periodic boundaries
         adjusted_coordinates = particles["Coordinates"] * dist_units_kpc - subhalo_pos
-        adjusted_coordinates = (
-            np.mod(adjusted_coordinates + box_size / 2.0, box_size) - box_size / 2.0
-        )
+        adjusted_coordinates = np.mod(adjusted_coordinates + box_size / 2.0, box_size) - box_size / 2.0
         particles["Coordinates"] = adjusted_coordinates
         # center velocities
         particles["Velocities"] = particles["Velocities"] - subhalo_vel
         particles["Masses"] = particles["Masses"] * mass_units_msun
 
-        print(f" number of {component} particles: { len(particles['Masses']) }")
+        print(f" number of {component} particles: {len(particles['Masses'])}")
         print(f" total particle mass: {np.sum(particles['Masses']):.1e} Ms")
 
         # # rotate galaxy to desired orientation based on disk spin

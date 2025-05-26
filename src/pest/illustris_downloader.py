@@ -6,7 +6,6 @@ from pest.get_illustris_apy_key import get_illustris_api_key
 
 
 class IllustrisDownloader(object):
-
     def __init__(
         self,
         download_path: str = "data",
