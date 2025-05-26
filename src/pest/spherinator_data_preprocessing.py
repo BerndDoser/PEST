@@ -1,4 +1,4 @@
-# flake8: noqa
+# ruff: noqa
 
 """
 First version of Spherinator data preprocessing routine to produce

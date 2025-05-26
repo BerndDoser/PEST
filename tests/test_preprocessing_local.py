@@ -27,6 +27,8 @@ def test_preprocessing_local():
         debug=False,
     )
 
+    assert isinstance(result, dict)
+
 
 # {'SubID': [79417, 79580, 79811, 83918, 86024],
 #  'GroupID': [99, 100, 102, 131, 149],

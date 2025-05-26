@@ -1,3 +1,5 @@
+# ruff: noqa
+
 import illustris_python as il
 import numpy as np
 

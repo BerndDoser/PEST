@@ -3,7 +3,6 @@ import os
 import h5py
 import numpy as np
 import requests
-from tqdm import tqdm
 
 
 def get_illustris_api_key():
@@ -175,7 +174,7 @@ def data_preprocess_api(
     sim_info = get(url, api_key)
     print(sim_info)
     box_size = sim_info["boxsize"] / sim_info["hubble"]
-    print(f"Box size:", box_size / 1e3, " Mpc")
+    print("Box size:", box_size / 1e3, " Mpc")
     mass_units_msun = 1e10 / sim_info["hubble"]
     dist_units_kpc = 1.0 / sim_info["hubble"]
 
@@ -235,7 +234,7 @@ def data_preprocess_api(
 
         group = get(subhalo["related"]["parent_halo"] + "info.json", api_key)
         mass_halo = group["Group_M_Crit200"] * mass_units_msun
-        rvir_halo = group["Group_R_Crit200"] * dist_units_kpc
+        # rvir_halo = group["Group_R_Crit200"] * dist_units_kpc
 
         if selection_type == "stellar mass":
             mass = mass_stars
