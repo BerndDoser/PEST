@@ -48,3 +48,5 @@ jobs:
 
       - name: Run unit tests
         run: uv run --extra dev python${{ matrix.python-version }} -m pytest
+        env:
+          ILLUSTRIS_API_KEY: ${{ secrets.ILLUSTRIS_API_KEY }}
