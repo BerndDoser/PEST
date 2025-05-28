@@ -21,7 +21,6 @@ class Selector:
 
 
 class IllustrisDownloader(object):
-
     def __init__(
         self,
         base_url: str = "http://www.tng-project.org/api",
@@ -58,13 +57,11 @@ class IllustrisDownloader(object):
         search_query = ""
         if selector is not None:
             search_query = (
-                f"?{selector.property}__gt="
+                f"?{selector.property.value}__gt="
                 + str(selector.min_value)
-                + f"&{selector.property}__lt="
+                + f"&{selector.property.value}__lt="
                 + str(selector.max_value)
             )
-
-        print(search_query)
 
         start_time = time.time()
         subhalos = requests.get(
