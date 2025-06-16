@@ -1,6 +1,5 @@
 # ruff: noqa
 
-import illustris_python as il
 import numpy as np
 
 
@@ -200,14 +199,18 @@ def data_preprocess_local(
 
         # load galaxy particles
         print(" loading particles...")
-        particles = il.snapshot.loadSubhalo(basePath, snapshot, subid, component)  # all fields
+        particles = il.snapshot.loadSubhalo(
+            basePath, snapshot, subid, component
+        )  # all fields
         # print number of particles in the galaxy
         masses_temp = particles["Masses"] * mass_units_msun
         print(f" number of {component} particles: {len(masses_temp)}")
         print(f" total particle mass: {np.sum(masses_temp):.1e} Ms")
 
         # center the coordinates/velocities and masses
-        particles["Coordinates"] = (particles["Coordinates"] - subhalo["SubhaloPos"]) * dist_units_kpc
+        particles["Coordinates"] = (
+            particles["Coordinates"] - subhalo["SubhaloPos"]
+        ) * dist_units_kpc
         particles["Velocities"] = particles["Velocities"] - subhalo["SubhaloVel"]
         particles["Masses"] = particles["Masses"] * mass_units_msun
 
