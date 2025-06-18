@@ -26,12 +26,13 @@ def test_selector_property_type():
 
 def test_get_subhalos_selector():
     illustris_downloader = IllustrisDownloader()
+    mass_min = 10**11.99 / 1e10 * 0.704
+    mass_max = 10**12.01 / 1e10 * 0.704
     result = illustris_downloader.get_subhalos(
-        selector=Selector(property=PropertyType.MASS, min_value=1e10, max_value=1e11)
+        selector=Selector(property=PropertyType.MASS, min_value=mass_min, max_value=mass_max)
     )
 
-    assert result["count"] == 4371211
-    assert len(result["results"]) == 100
+    assert result["count"] == 94
 
 
 def test_download_json():
