@@ -8,11 +8,8 @@ images, 2D maps, datacubes, or point clouds of arbitrary quantities
 import os
 from pathlib import Path
 
-import h5py
-import illustris_python as il
 import matplotlib.pyplot as plt
 import numpy as np
-import requests
 from PIL import Image, ImageFilter
 from scipy.stats import binned_statistic_2d, binned_statistic_dd
 from skimage import img_as_ubyte
