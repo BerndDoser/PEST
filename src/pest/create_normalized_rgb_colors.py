@@ -14,11 +14,11 @@ class CreateNormalizedRGBColors:
         Initialize CreateNormalizedRGBColors.
 
         Args:
-            stretch (bool): Flag indicating whether to stretch the image.
-            range (tuple): Range of pixel values to be used for stretching.
-            lower_limit (int): Lower limit for pixel values.
-            channel_combinations (list): List of channel combinations to be used.
-            scalers (list): List of scalers to be applied.
+            stretch (float): Stretch factor for the normalization.
+            range (int): Range for the normalization.
+            lower_limit (float): Lower limit for pixel values.
+            channel_combinations (list[list[int]]): List of channel combinations to create RGB images.
+            scalers (list[float]): List of scalers for each channel combination.
         """
         self.stretch = stretch
         self.range = range
