@@ -3,6 +3,13 @@ from pest import FitsConverter
 FitsConverter(
     image_size=128,
 ).convert_all(
-    "/home/doserbd/data/two-images/TNG100/sdss/snapnum_099/data",
-    "./output",
+    [
+        "/hits/basement/its/doserbd/data/SKIRT_synthetic_images/fits/TNG100/sdss/snapnum_099/data",
+        "/hits/basement/its/doserbd/data/SKIRT_synthetic_images/fits/TNG100/sdss/snapnum_095/data",
+        "/hits/basement/its/doserbd/data/SKIRT_synthetic_images/fits/TNG50/sdss/snapnum_099/data",
+        "/hits/basement/its/doserbd/data/SKIRT_synthetic_images/fits/TNG50/sdss/snapnum_095/data",
+        "/hits/basement/its/doserbd/data/SKIRT_synthetic_images/fits/Illustris/sdss/snapnum_135/data",
+        "/hits/basement/its/doserbd/data/SKIRT_synthetic_images/fits/Illustris/sdss/snapnum_131/data",
+    ],
+    "/hits/basement/its/doserbd/data/SKIRT_synthetic_images/parquet-v3-128",
 )

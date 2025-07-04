@@ -3,23 +3,23 @@ from enum import Enum
 
 
 class OrientationType(Enum):
-    ORIGINAL = 1
-    FACE_ON = 2
-    EDGE_ON = 3
-    RANDOM = 4
+    ORIGINAL = "original"
+    FACE_ON = "face_on"
+    EDGE_ON = "edge_on"
+    RANDOM = "random"
 
 
 class PropertyType(Enum):
-    STELLAR_MASS = 1
-    STAR_FORMATION_RATE = 2
-    METALLICITY = 3
-    GAS_DENSITY = 4
-    DARK_MATTER_DENSITY = 5
-    DARK_MATTER_VELOCITY = 6
-    GAS_VELOCITY = 7
-    STELLAR_VELOCITY = 8
-    STAR_AGE = 9
-    STAR_METALLICITY = 10
+    STELLAR_MASS = "stellar_mass"
+    STAR_FORMATION_RATE = "star_formation_rate"
+    METALLICITY = "metallicity"
+    GAS_DENSITY = "gas_density"
+    DARK_MATTER_DENSITY = "dark_matter_density"
+    DARK_MATTER_VELOCITY = "dark_matter_velocity"
+    GAS_VELOCITY = "gas_velocity"
+    STELLAR_VELOCITY = "stellar_velocity"
+    STAR_AGE = "star_age"
+    STAR_METALLICITY = "star_metallicity"
 
 
 @dataclass
