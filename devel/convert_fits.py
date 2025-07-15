@@ -2,6 +2,8 @@ from pest import FitsConverter
 
 FitsConverter(
     image_size=128,
+    datatype="float32",
+    flatten=False,
 ).convert_all(
     [
         "/hits/basement/its/doserbd/data/SKIRT_synthetic_images/fits/TNG100/sdss/snapnum_099/data",
