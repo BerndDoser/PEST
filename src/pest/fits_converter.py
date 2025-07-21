@@ -25,6 +25,7 @@ class FitsConverter(Converter):
         datatype: str = "png",
         flatten: bool = True,
         chunk_size: Optional[int] = None,
+        compression: str = "snappy",
     ):
         """Initialize the FitsConverter.
 
@@ -35,6 +36,7 @@ class FitsConverter(Converter):
             flatten (bool, optional): Whether to flatten the data (default: True).
                 The shape of the data will be preserved in the metadata.
             chunk_size (int, optional): Size of row chunks of parquet files (default: None).
+            compression (str, optional): Compression algorithm for parquet files (default: "snappy").
         """
 
         if datatype not in ["png", "uint8", "float32"]:
@@ -47,6 +49,7 @@ class FitsConverter(Converter):
         self.datatype = datatype
         self.flatten = flatten
         self.chunk_size = chunk_size
+        self.compression = compression
 
         self.normalize_rgb = CreateNormalizedRGBColors(
             stretch=0.9,
@@ -151,7 +154,7 @@ class FitsConverter(Converter):
                         writer = pq.ParquetWriter(
                             f"{output_directory}/0.parquet",
                             table.schema,
-                            compression="snappy",
+                            compression=self.compression,
                         )
 
                     writer.write_table(table, row_group_size=self.chunk_size)
