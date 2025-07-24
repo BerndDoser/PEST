@@ -1,0 +1,84 @@
+source:
+  class_path: pest.IllustrisExtractor
+  init_args:
+    simulation_path: /home/doserbd/data/illustris/
+    simulation: TNG50-3
+    snapshot: 99
+    objects: centrals
+    component:
+      - name: stars
+        fields:
+          - mass, masses
+          - positions
+          - velocities
+          - ages
+          - metallicities
+        selectors:
+          - type: stellar mass
+            min: 5.0e+10
+            max: 5.2e+10
+      - name: gas
+        fields:
+          - masses
+          - positions
+      - name: dark_matter
+        fields:
+          - masses
+          - positions
+
+{
+  galaxy:
+    id: 101 # subhalo_id
+    central: true
+    position: [1.0, 1.0, 1.0]
+    velocity: [1.0, 1.0, 1.0]
+    total_mass:
+  particles:
+    stars:
+      number_of_particles: 100
+      total_mass: 1.0
+      positions: []
+    gas:
+}
+
+target:
+  class_path: pest.ParquetWriter
+  init_args:
+    output_directory: /home/doserbd/data/illustris/parquet/point-cloud
+    compression: snappy
+    chunk_size: 1000
+
+    columns:
+      - name: skirt
+        generator:
+          class_path: pest.SKIRTGenerator
+          init_args:
+            image_size: 128
+
+      - name: image
+        generator:
+          class_path: pest.OpticalImageGenerator # from Sebastian
+          init_args:
+            image_size: 128
+            smoothing: 0.0
+            fov: scaled
+            image_scale: log
+            orientation: original
+
+      - name: point-cloud
+        generator:
+          class_path: pest.PointCloudGenerator
+          init_args:
+            particles:
+              - name: stars
+                fields:
+                  - positions
+                  - masses
+              - name: gas
+                fields:
+                  - positions
+                  - masses
+              - name: dark_matter
+                fields:
+                  - positions
+                  - masses
