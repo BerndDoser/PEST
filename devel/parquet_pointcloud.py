@@ -9,6 +9,7 @@ data = {
         [[7.7, 8.8, 9.9]],
     ],
     "stars_mass": [[1.5, 0.9], [2.3]],
+    "stars_id": [[101, 102], [201]],
 }
 df = pd.DataFrame(data)
 
