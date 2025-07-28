@@ -9,7 +9,8 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 from astropy.io import fits
-from PIL import Image
+from datasets import Image as HFImage
+from PIL import Image as PILImage
 from skimage.transform import resize
 
 from pest.converter import Converter
@@ -119,11 +120,15 @@ class FitsConverter(Converter):
                             data_schema = pa.list_(pa.list_(pa.list_(pa.uint8())))
                     elif self.datatype == "png":
                         data = (data * 255).astype(np.uint8)
-                        img = Image.fromarray(data.transpose(1, 2, 0))  # CHW to HWC
-                        png_buffer = io.BytesIO()
-                        img.save(png_buffer, format="PNG", optimize=True)
-                        data = png_buffer.getvalue()
-                        data_schema = pa.binary()
+                        data = PILImage.fromarray(data.transpose(1, 2, 0))  # CHW to HWC
+                        data = HFImage(data)  # Convert to HFImage for automatic PIL handling
+                        # pil_image = Image.new("RGB", (128, 128))
+                        # img_buffer = io.BytesIO()
+                        # pil_image.save(img_buffer, format="PNG")
+                        # data = img_buffer.getvalue()
+
+                    # Get schema from the actual data object
+                    # data_schema = pa.infer_type([data])
 
                     df = pd.DataFrame(
                         {
@@ -134,17 +139,18 @@ class FitsConverter(Converter):
                         }
                     )
 
-                    schema = pa.schema(
-                        [
-                            ("data", data_schema),
-                            ("simulation", pa.string()),
-                            ("snapshot", pa.int32()),
-                            ("subhalo_id", pa.int32()),
-                        ]
-                    )
+                    # schema = pa.schema(
+                    #     [
+                    #         ("data", data_schema),
+                    #         ("simulation", pa.string()),
+                    #         ("snapshot", pa.int32()),
+                    #         ("subhalo_id", pa.int32()),
+                    #     ]
+                    # )
 
                     # Use pyarrow to write the data to a parquet file
-                    table = pa.Table.from_pandas(df, schema=schema)
+                    # table = pa.Table.from_pandas(df, schema=schema)
+                    table = pa.Table.from_pandas(df)
 
                     # Add shape metadata to the schema
                     if self.flatten:
