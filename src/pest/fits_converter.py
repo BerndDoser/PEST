@@ -1,6 +1,7 @@
 """Convert FITS files to Parquet format."""
 
 import io
+import json
 import os
 from typing import Optional
 
@@ -9,10 +10,10 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 from astropy.io import fits
-from datasets import Image as HFImage
 from PIL import Image as PILImage
 from skimage.transform import resize
 
+import pest
 from pest.converter import Converter
 from pest.create_normalized_rgb_colors import CreateNormalizedRGBColors
 
@@ -121,14 +122,11 @@ class FitsConverter(Converter):
                     elif self.datatype == "png":
                         data = (data * 255).astype(np.uint8)
                         data = PILImage.fromarray(data.transpose(1, 2, 0))  # CHW to HWC
-                        data = HFImage(data)  # Convert to HFImage for automatic PIL handling
-                        # pil_image = Image.new("RGB", (128, 128))
-                        # img_buffer = io.BytesIO()
-                        # pil_image.save(img_buffer, format="PNG")
-                        # data = img_buffer.getvalue()
-
-                    # Get schema from the actual data object
-                    # data_schema = pa.infer_type([data])
+                        # Convert PIL image to bytes for Parquet storage
+                        img_buffer = io.BytesIO()
+                        data.save(img_buffer, format="PNG")
+                        data = img_buffer.getvalue()
+                        data_schema = pa.binary()
 
                     df = pd.DataFrame(
                         {
@@ -139,22 +137,27 @@ class FitsConverter(Converter):
                         }
                     )
 
-                    # schema = pa.schema(
-                    #     [
-                    #         ("data", data_schema),
-                    #         ("simulation", pa.string()),
-                    #         ("snapshot", pa.int32()),
-                    #         ("subhalo_id", pa.int32()),
-                    #     ]
-                    # )
+                    schema = pa.schema(
+                        [
+                            ("data", data_schema),
+                            ("simulation", pa.string()),
+                            ("snapshot", pa.int32()),
+                            ("subhalo_id", pa.int32()),
+                        ]
+                    )
 
                     # Use pyarrow to write the data to a parquet file
-                    # table = pa.Table.from_pandas(df, schema=schema)
-                    table = pa.Table.from_pandas(df)
+                    table = pa.Table.from_pandas(df, schema=schema)
 
-                    # Add shape metadata to the schema
+                    # Add schema metadata
+                    metadata = {"pest": pest.__version__}
                     if self.flatten:
-                        table = table.replace_schema_metadata(metadata={"data_shape": str(data_shape)})
+                        metadata[b"data_shape"] = str(data_shape)
+                    if self.datatype == "png":
+                        features = {"info": {"features": {"data": {"_type": "Image"}}}}
+                        metadata[b"huggingface"] = json.dumps(features).encode("utf-8")
+
+                    table = table.replace_schema_metadata(metadata)
 
                     if writer is None:
                         writer = pq.ParquetWriter(
@@ -166,4 +169,5 @@ class FitsConverter(Converter):
                     writer.write_table(table, row_group_size=self.chunk_size)
 
         if writer is not None:
+            writer.close()
             writer.close()
