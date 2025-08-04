@@ -24,11 +24,13 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "datasets>=4.0",
-    "huggingface-hub>=0.33",
     "ipykernel>=6.29",
     "pytest>=8.3",
     "ruff>=0.11",
+]
+hf = [
+    "datasets>=4.0",
+    "huggingface-hub>=0.33",
 ]
 
 [build-system]
