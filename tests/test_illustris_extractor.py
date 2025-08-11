@@ -10,8 +10,8 @@ def test_initialization_valid_config():
     """Test successful initialization with valid configuration."""
     with patch.object(Path, "exists", return_value=True):
         extractor = IllustrisExtractor(
-            simulation_path="/fake/path",
-            simulation="TNG50",
+            simulation_path="tests/data/illustris",
+            simulation="TNG50-1",
             snapshot=99,
             objects="centrals",
             component=[
@@ -23,9 +23,10 @@ def test_initialization_valid_config():
             ],
         )
 
-        assert extractor.simulation == "TNG50"
+        assert extractor.simulation == "TNG50-1"
         assert extractor.snapshot == 99
         assert extractor.objects == "centrals"
+        assert extractor.mass_units_msun == 14762326542.663124
         assert len(extractor.components) == 1
 
 

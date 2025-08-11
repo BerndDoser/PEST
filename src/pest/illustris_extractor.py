@@ -75,6 +75,18 @@ class IllustrisExtractor(Extractor):
         self.objects = objects
         self.components = component or []
 
+        self.base_path = str(self.simulation_path / self.simulation)
+
+        # Load simulation header
+        header = loadHeader(self.base_path, self.snapshot)
+
+        # Unit conversions
+        self.mass_units_msun = 1e10 / header["HubbleParam"]
+        self.dist_units_kpc = header["Time"] / header["HubbleParam"]
+
+        # Apply object selection
+        self.object_mask = self._get_object_mask()
+
         # Validate configuration on initialization
         self.validate_configuration()
 
@@ -85,21 +97,6 @@ class IllustrisExtractor(Extractor):
             Dict[str, Any]: Dictionary containing extracted data organized by components.
         """
 
-        base_path = str(self.simulation_path / self.simulation)
-
-        # Load simulation header
-        header = loadHeader(base_path, self.snapshot)
-
-        # Unit conversions
-        mass_units_msun = 1e10 / header["HubbleParam"]
-        dist_units_kpc = header["Time"] / header["HubbleParam"]
-
-        # Load subhalos catalog
-        subhalos = loadSubhalos(base_path, self.snapshot)
-
-        # Apply object selection
-        object_mask = self._get_object_mask(subhalos)
-
         extracted_data = {}
 
         for component_config in self.components:
@@ -109,7 +106,7 @@ class IllustrisExtractor(Extractor):
 
             # Apply selector if specified
             if selector:
-                selection_mask = self._apply_selector(subhalos, selector, mass_units_msun)
+                selection_mask = self._apply_selector(subhalos, selector)
                 final_mask = object_mask & selection_mask
             else:
                 final_mask = object_mask
@@ -128,9 +125,7 @@ class IllustrisExtractor(Extractor):
                 # Load particle data for this subhalo
                 for field in fields:
                     try:
-                        field_data = self._load_particle_field(
-                            base_path, self.snapshot, subhalo_id, ptype, field, mass_units_msun, dist_units_kpc
-                        )
+                        field_data = self._load_particle_field(self.snapshot, subhalo_id, ptype, field)
                         subhalo_data[field] = field_data
                     except (AttributeError, KeyError, RuntimeError) as e:
                         print(f"Warning: Could not load field '{field}' for subhalo {subhalo_id}: {e}")
@@ -200,31 +195,30 @@ class IllustrisExtractor(Extractor):
                 if not self._validate_selector(selector):
                     raise ValueError(f"Error: Invalid selector for component '{component_name}': {selector}")
 
-    def _get_object_mask(self, subhalos: Dict[str, np.ndarray]) -> np.ndarray:
+    def _get_object_mask(self) -> np.ndarray:
         """Get mask for object selection (centrals, satellites, or all)."""
+        subhalo_gr_nr = loadSubhalos(self.base_path, self.snapshot, ["SubhaloGrNr"])
         if self.objects == "centrals":
-            return subhalos["SubhaloGrNr"] == 0  # Central subhalos
+            return subhalo_gr_nr == 0  # Central subhalos
         elif self.objects == "satellites":
-            return subhalos["SubhaloGrNr"] > 0  # Satellite subhalos
+            return subhalo_gr_nr > 0  # Satellite subhalos
         else:  # "all"
-            return np.ones(len(subhalos["SubhaloGrNr"]), dtype=bool)
+            return np.ones(len(subhalo_gr_nr), dtype=bool)
 
-    def _apply_selector(
-        self, subhalos: Dict[str, np.ndarray], selector: Dict[str, Any], mass_units_msun: float
-    ) -> np.ndarray:
+    def _apply_selector(self, subhalos: Dict[str, np.ndarray], selector: Dict[str, Any]) -> np.ndarray:
         """Apply mass selection criteria."""
         selector_type = selector["type"]
         min_mass = selector["min"]
         max_mass = selector["max"]
 
         if selector_type == "stellar mass":
-            masses = subhalos["SubhaloMassType"][:, 4] * mass_units_msun  # Stars are particle type 4
+            masses = subhalos["SubhaloMassType"][:, 4] * self.mass_units_msun  # Stars are particle type 4
         elif selector_type == "total mass":
-            masses = subhalos["SubhaloMass"] * mass_units_msun
+            masses = subhalos["SubhaloMass"] * self.mass_units_msun
         elif selector_type == "gas mass":
-            masses = subhalos["SubhaloMassType"][:, 0] * mass_units_msun  # Gas is particle type 0
+            masses = subhalos["SubhaloMassType"][:, 0] * self.mass_units_msun  # Gas is particle type 0
         elif selector_type == "dark_matter_mass":
-            masses = subhalos["SubhaloMassType"][:, 1] * mass_units_msun  # DM is particle type 1
+            masses = subhalos["SubhaloMassType"][:, 1] * self.mass_units_msun  # DM is particle type 1
         else:
             raise ValueError(f"Unknown selector type: {selector_type}")
 
@@ -237,13 +231,10 @@ class IllustrisExtractor(Extractor):
 
     def _load_particle_field(
         self,
-        base_path: str,
         snapshot: int,
         subhalo_id: int,
         ptype: int,
         field: str,
-        mass_units_msun: float,
-        dist_units_kpc: float,
     ) -> np.ndarray:
         """Load a specific field for particles in a subhalo."""
         # Field name mapping to IllustrisTNG field names
@@ -271,7 +262,7 @@ class IllustrisExtractor(Extractor):
         illustris_field = field_mapping.get(field, field)
 
         # Load particle data for this subhalo
-        particle_data = loadSubhalo(base_path, snapshot, subhalo_id, ptype, fields=[illustris_field])
+        particle_data = loadSubhalo(self.base_path, snapshot, subhalo_id, ptype, fields=[illustris_field])
 
         if particle_data is None or len(particle_data) == 0:
             return np.array([])
@@ -280,9 +271,9 @@ class IllustrisExtractor(Extractor):
 
         # Apply unit conversions
         if field == "masses":
-            data = data * mass_units_msun
+            data = data * self.mass_units_msun
         elif field == "positions":
-            data = data * dist_units_kpc
+            data = data * self.dist_units_kpc
 
         return data
 
