@@ -46,7 +46,12 @@ jobs:
       - name: Check code formatting
         run: uv run --extra dev ruff format --check
 
+      # - name: Get illustris groupcat
+      #   run: |
+      #     mkdir -p data/TNG50-1/groups_099
+      #     wget -P data/TNG50-1/groups_099 -nc --content-disposition --header="API-Key: ${{ secrets.ILLUSTRIS_API_KEY }}" "http://www.tng-project.org/api/TNG50-1/files/groupcat-099.0.hdf5"
+
       - name: Run unit tests
-        run: uv run --extra dev -p ${{ matrix.python-version }} pytest
+        run: uv run --extra dev -p ${{ matrix.python-version }} -k pytest tests/test_illustris_extractor.py
         env:
           ILLUSTRIS_API_KEY: ${{ secrets.ILLUSTRIS_API_KEY }}

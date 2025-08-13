@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Any, Dict
 
 
 class Generator(ABC):
@@ -10,12 +11,12 @@ class Generator(ABC):
     @abstractmethod
     def __call__(
         self,
-        input_file: str,
-        output_file: str,
+        input_data: Dict[str, Any],
+        output_directory: str,
     ):
-        """Convert a single file to Parquet format.
+        """Generate Parquet dataset from input data.
 
         Args:
-            input_file (str): Path to the input file.
-            output_file (str): Path to the output file.
+            input_data (Dict[str, Any]): Input data to convert.
+            output_directory (str): Directory to save the output files.
         """
