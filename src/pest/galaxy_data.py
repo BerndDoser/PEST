@@ -17,6 +17,16 @@ class Particle:
 
 
 @dataclass
+class Star(Particle):
+    luminosity: float = 1.0  # Example of a star-specific property
+
+
+@dataclass
+class Gas(Particle):
+    temperature: float = 100.0  # Example of a gas-specific property
+
+
+@dataclass
 class Galaxy:
     id: int
     central: bool
@@ -32,22 +42,29 @@ class Galaxy:
             raise ValueError("Velocity must have exactly 3 coordinates")
 
 
-star = Particle(
-    id=1,
-    mass=1.0,
-    position=[0.0, 0.0, 0.0],
-    velocity=[0.0, 0.0, 0.0],
-)
+star = Star(id=1, mass=1.0, position=[0.0, 0.0, 0.0], velocity=[0.0, 0.0, 0.0], luminosity=10.0)
+gas = Gas(id=2, mass=0.5, position=[1.0, 0.0, 0.0], velocity=[0.0, 0.1, 0.0], temperature=500.0)
 
-galaxy = Galaxy(
+galaxy_1 = Galaxy(
     id=1,
     central=True,
     mass=1.0,
     position=[0.0, 0.0, 0.0],
     velocity=[0.0, 0.0, 0.0],
-    particles={"stars": [star]},
+    particles=[star, gas],
+)
+galaxy_2 = Galaxy(
+    id=2,
+    central=True,
+    mass=2.0,
+    position=[0.0, 0.0, 1.0],
+    velocity=[0.0, 0.0, 0.0],
+    particles=[],
 )
 
-data = {"galaxies": [galaxy]}
+# type alias
+Galaxies = List[Galaxy]
 
-print(data)
+galaxies: Galaxies = [galaxy_1, galaxy_2]
+
+print(galaxies)
