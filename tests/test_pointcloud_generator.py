@@ -23,7 +23,7 @@ def test_point_cloud_generation(tmp_path):
             }
         ]
     }
-    generator = PointCloudGenerator()
+    generator = PointCloudGenerator(["stars_position", "stars_mass"])
     generator(data, tmp_path)
 
     assert (tmp_path / "0.parquet").exists(), "Parquet file was not created."
