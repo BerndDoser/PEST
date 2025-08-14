@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict
+
+from pest.galaxy import Galaxy
 
 
 class Generator(ABC):
@@ -9,14 +10,12 @@ class Generator(ABC):
         """Initialize the Converter."""
 
     @abstractmethod
-    def __call__(
+    def add_galaxy(
         self,
-        input_data: Dict[str, Any],
-        output_directory: str,
+        galaxy: Galaxy,
     ):
-        """Generate Parquet dataset from input data.
+        """Add a galaxy to the dataset.
 
         Args:
-            input_data (Dict[str, Any]): Input data to convert.
-            output_directory (str): Directory to save the output files.
+            galaxy (Galaxy): The galaxy to add.
         """
