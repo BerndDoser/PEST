@@ -26,9 +26,9 @@ def test_point_cloud_generation(tmp_path):
 
     generator = PointCloudGenerator(
         output_directory=str(tmp_path),
-        columns=["id", "stars_position", "stars_mass"],
+        columns=["id", "stars_position", "stars_mass", "stars_luminosity"],
     )
     generator.add_galaxy(galaxy_1)
-    # generator.add_galaxy(galaxy_2)
+    generator.add_galaxy(galaxy_2)
 
-    assert (tmp_path / "0.parquet").exists(), "Parquet file was not created."
+    assert (tmp_path / "part-0.parquet").exists(), "Parquet file was not created."

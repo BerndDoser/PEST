@@ -1,4 +1,5 @@
 import os
+from dataclasses import fields
 
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -22,9 +23,23 @@ class PointCloudGenerator(Generator):
         self.chunk_size = chunk_size
         self.compression = compression
         self.output_directory = output_directory
+        self._writer = None
+        self._idx = 0
+        self._file_idx = 0
 
-        self.idx = 0
-        self.file_idx = 0
+        self.schema = pa.schema([])
+
+        fixed_field_types = {
+            "id": pa.int64(),
+            "stars_position": pa.list_(pa.list_(pa.float32(), list_size=3)),
+            "stars_mass": pa.list_(pa.float32()),
+            "stars_luminosity": pa.list_(pa.float32()),
+            "gas_position": pa.list_(pa.list_(pa.float32(), list_size=3)),
+            "gas_mass": pa.list_(pa.float32()),
+            "gas_temperature": pa.list_(pa.float32()),
+        }
+        for column in self.columns:
+            self.schema = self.schema.append(pa.field(column, fixed_field_types[column]))
 
         os.makedirs(output_directory, exist_ok=True)
 
@@ -46,15 +61,19 @@ class PointCloudGenerator(Generator):
                     galaxy_data[column] = getattr(galaxy, column)
 
         # Write this galaxy as a single row to the Parquet file
-        table = pa.Table.from_pylist([galaxy_data])
-        pq.write_table(
-            table,
-            os.path.join(self.output_directory, f"{self.file_idx}.parquet"),
-            compression=self.compression,
-        )
+        table = pa.Table.from_pylist([galaxy_data], schema=self.schema)
+        if self._writer is None:
+            self._writer = pq.ParquetWriter(
+                os.path.join(self.output_directory, f"part-{self._file_idx}.parquet"),
+                self.schema,
+                compression=self.compression,
+            )
+        self._writer.write_table(table)
 
         # Increment the index and file index
-        self.idx += 1
-        if self.idx >= self.chunk_size:
-            self.idx = 0
-            self.file_idx += 1
+        self._idx += 1
+        if self._idx >= self.chunk_size:
+            self._idx = 0
+            self._file_idx += 1
+            self._writer.close()
+            self._writer = None
