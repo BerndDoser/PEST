@@ -210,7 +210,7 @@ def _parse_to_records(chunk):
 
 def _parse_array(arrlit):
     """returns a numpy array from a postgres array literal."""
-    return numpy.fromiter((float(l) for l in arrlit[1:-1].split(",")), "f")
+    return numpy.fromiter((float(literal) for literal in arrlit[1:-1].split(",")), "f")
 
 
 def _to_types(rec):
