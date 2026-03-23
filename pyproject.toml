@@ -9,13 +9,14 @@ authors = [
 license = "Apache-2.0"
 readme = "README.md"
 
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "gaiaxpy>=2.1",
     "h5py>=3.12",
     "matplotlib>=3.10",
-    "pandas>=2.2",
+    "pandas>=3.0.1",
     "pyarrow>=20.0",
+    "pynbody>=2.4.1",
     "pyyaml>=6.0",
     "requests>=2.32",
     "scikit-image>=0.25",
