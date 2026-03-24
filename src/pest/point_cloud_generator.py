@@ -1,5 +1,4 @@
 import os
-from dataclasses import fields
 
 import pyarrow as pa
 import pyarrow.parquet as pq
