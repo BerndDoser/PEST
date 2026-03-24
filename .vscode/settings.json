@@ -16,4 +16,8 @@
     },
     "python.analysis.autoImportCompletions": true,
     "notebook.formatOnSave.enabled": true,
+    "terminal.integrated.env.linux": {
+        "UV_CACHE_DIR": "/local/doserbd/.uv-cache",
+        "UV_PROJECT_ENVIRONMENT": "/local/doserbd/pest-venv"
+    },
 }
