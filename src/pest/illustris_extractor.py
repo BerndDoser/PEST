@@ -87,6 +87,8 @@ class IllustrisExtractor(Extractor):
         # Apply object selection
         self.object_mask = self._get_object_mask()
 
+        self.subhalos = loadSubhalos(self.base_path, self.snapshot)
+
         # Validate configuration on initialization
         self.validate_configuration()
 
@@ -106,10 +108,10 @@ class IllustrisExtractor(Extractor):
 
             # Apply selector if specified
             if selector:
-                selection_mask = self._apply_selector(subhalos, selector)
-                final_mask = object_mask & selection_mask
+                selection_mask = self._apply_selector(self.subhalos, selector)
+                final_mask = self.object_mask & selection_mask
             else:
-                final_mask = object_mask
+                final_mask = self.object_mask
 
             # Get particle type for this component
             ptype = self._get_particle_type(component_name)
