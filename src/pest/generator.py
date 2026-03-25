@@ -19,3 +19,7 @@ class Generator(ABC):
         Args:
             galaxy (Galaxy): The galaxy to add.
         """
+
+    @abstractmethod
+    def close(self):
+        """Finalize the output dataset, e.g. by closing files or writing metadata."""

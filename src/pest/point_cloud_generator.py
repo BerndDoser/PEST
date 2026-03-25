@@ -76,3 +76,9 @@ class PointCloudGenerator(Generator):
             self._file_idx += 1
             self._writer.close()
             self._writer = None
+
+    def close(self):
+        """Finalize the output dataset by closing the Parquet writer."""
+        if self._writer is not None:
+            self._writer.close()
+            self._writer = None
