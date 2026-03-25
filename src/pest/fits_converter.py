@@ -63,7 +63,75 @@ class FitsConverter(Converter):
         input_file: str,
         output_file: str,
     ):
-        pass
+        """Convert a single FITS file to Parquet format.
+
+        Args:
+            input_file (str): Path to the input FITS file.
+            output_file (str): Path to the output Parquet file.
+        """
+        splits = input_file[: -len(".fits")].split("/")
+
+        data = fits.getdata(input_file, 0)
+        data = np.array(data).astype(np.float32)
+        data = self.normalize_rgb(data)
+
+        # Skip unhealthy data
+        if np.isnan(data).any() or np.isinf(data).any() or np.all(data == data.flat[0]):
+            return
+
+        data = resize(data, (3, self.image_size, self.image_size))
+        data_shape = data.shape
+
+        if self.datatype == "float32":
+            if self.flatten:
+                data = data.flatten()
+                data_schema = pa.list_(pa.float32())
+            else:
+                data = data.tolist()
+                data_schema = pa.list_(pa.list_(pa.list_(pa.float32())))
+        elif self.datatype == "uint8":
+            data = (data * 255).astype(np.uint8)
+            if self.flatten:
+                data = data.flatten()
+                data_schema = pa.list_(pa.uint8())
+            else:
+                data = data.tolist()
+                data_schema = pa.list_(pa.list_(pa.list_(pa.uint8())))
+        elif self.datatype == "png":
+            data = (data * 255).astype(np.uint8)
+            img = Image.fromarray(data.transpose(1, 2, 0))  # CHW to HWC
+            png_buffer = io.BytesIO()
+            img.save(png_buffer, format="PNG", optimize=True)
+            data = png_buffer.getvalue()
+            data_schema = pa.binary()
+
+        df = pd.DataFrame(
+            {
+                "data": [data],
+                "simulation": splits[-5],
+                "snapshot": np.int32(splits[-3].split("_")[1]),
+                "subhalo_id": np.int32(splits[-1].split("_")[1]),
+            }
+        )
+
+        schema = pa.schema(
+            [
+                ("data", data_schema),
+                ("simulation", pa.string()),
+                ("snapshot", pa.int32()),
+                ("subhalo_id", pa.int32()),
+            ]
+        )
+
+        # Use pyarrow to write the data to a parquet file
+        table = pa.Table.from_pandas(df, schema=schema)
+
+        # Add shape metadata to the schema
+        if self.flatten:
+            table = table.replace_schema_metadata(metadata={"data_shape": str(data_shape)})
+
+        os.makedirs(os.path.dirname(os.path.abspath(output_file)), exist_ok=True)
+        pq.write_table(table, output_file, compression=self.compression)
 
     def convert_all(
         self,
