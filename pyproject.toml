@@ -34,6 +34,9 @@ hf = [
     "huggingface-hub>=0.33",
 ]
 
+[project.scripts]
+pest = "pest.pipeline:main"
+
 [build-system]
 requires = ["setuptools >= 61.0"]
 build-backend = "setuptools.build_meta"
