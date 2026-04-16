@@ -1,6 +1,6 @@
 """Tests for the Pipeline class."""
 
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, call
 
 import pyarrow.parquet as pq
 import pytest
@@ -13,6 +13,7 @@ from pest.point_cloud_generator import PointCloudGenerator
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_star(i=0):
     return Star(id=i, mass=1.0, position=[float(i), 0.0, 0.0], velocity=[0.0, 0.0, 0.0], luminosity=2.5)
@@ -44,6 +45,7 @@ def _mock_extractor(galaxies):
 # ---------------------------------------------------------------------------
 # Unit tests
 # ---------------------------------------------------------------------------
+
 
 class TestPipelineInit:
     def test_stores_extractor_and_generators(self):
@@ -105,6 +107,7 @@ class TestPipelineRun:
 # Integration test with PointCloudGenerator
 # ---------------------------------------------------------------------------
 
+
 class TestPipelineWithPointCloudGenerator:
     COLUMNS = ["id", "stars_position", "stars_mass", "stars_luminosity", "gas_position", "gas_mass", "gas_temperature"]
 
@@ -141,9 +144,7 @@ class TestPipelineWithPointCloudGenerator:
         # 6 galaxies with chunk_size=4 → part-0 (4 rows) + part-1 (2 rows)
         assert (tmp_path / "part-0.parquet").exists()
         assert (tmp_path / "part-1.parquet").exists()
-        total_rows = sum(
-            pq.read_table(str(f)).num_rows for f in tmp_path.glob("*.parquet")
-        )
+        total_rows = sum(pq.read_table(str(f)).num_rows for f in tmp_path.glob("*.parquet"))
         assert total_rows == 6
 
     def test_parquet_star_luminosity_values(self, tmp_path):
