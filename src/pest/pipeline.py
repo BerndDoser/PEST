@@ -38,9 +38,9 @@ class Pipeline:
         files are properly finalised even if an error occurs mid-run.
         """
         try:
-            for galaxy in self.extractor.extract():
+            for item in self.extractor.extract():
                 for generator in self.generators:
-                    generator.add_galaxy(galaxy)
+                    generator.process(item)
         finally:
             for generator in self.generators:
                 generator.close()

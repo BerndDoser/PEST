@@ -1,25 +1,13 @@
 from abc import ABC, abstractmethod
 
-from pest.galaxy import Galaxy
-
 
 class Generator(ABC):
     """Base class for data generators."""
 
-    def __init__(self):
-        """Initialize the Converter."""
+    @abstractmethod
+    def process(self, item) -> None:
+        """Process one item from the extractor."""
 
     @abstractmethod
-    def add_galaxy(
-        self,
-        galaxy: Galaxy,
-    ):
-        """Add a galaxy to the dataset.
-
-        Args:
-            galaxy (Galaxy): The galaxy to add.
-        """
-
-    @abstractmethod
-    def close(self):
-        """Finalize the output dataset, e.g. by closing files or writing metadata."""
+    def close(self) -> None:
+        """Finalize the generator, e.g. by closing files or writing metadata."""
