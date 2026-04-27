@@ -10,7 +10,7 @@ class Count(Generator):
         self._count = 0
 
     def process(self, item) -> None:
-        self._count += 1
+        self._count += item
 
     def close(self) -> None:
         print(f"Total images: {self._count}")
