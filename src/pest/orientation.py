@@ -4,9 +4,9 @@ from matplotlib.patches import Ellipse
 from skimage import io
 
 
-def estimate_geometry_weighted(image_path, q0=0.2):
+def estimate_geometry_weighted(img, q0=0.2):
     # 1. Load image and ensure it's a float for math
-    img = io.imread(image_path, as_gray=True).astype(float)
+    # img = io.imread(image_path, as_gray=True).astype(float)
 
     # 2. Basic Background Subtraction
     # Moments are very sensitive to background noise.

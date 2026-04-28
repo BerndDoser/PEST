@@ -2,12 +2,14 @@ import importlib.metadata
 
 from .count import Count
 from .fits_converter import FitsConverter
+from .fits_dataset import FitsDataset
 from .gaia_converter import GaiaConverter
 from .illustris_downloader import IllustrisDownloader, PropertyType, Selector
 from .illustris_extractor import IllustrisExtractor
 from .illustris_preprocess_api import data_preprocess_api
 from .illustris_preprocess_local import data_preprocess_local
 from .illustris_skirt_reader import IllustrisSkirtReader
+from .orientation import estimate_geometry_weighted, visualize_results
 from .pipeline import Pipeline
 from .point_cloud_generator import PointCloudGenerator
 
@@ -16,7 +18,9 @@ __all__ = [
     "Count",
     "data_preprocess_api",
     "data_preprocess_local",
+    "estimate_geometry_weighted",
     "FitsConverter",
+    "FitsDataset",
     "GaiaConverter",
     "IllustrisDownloader",
     "IllustrisExtractor",
@@ -25,4 +29,5 @@ __all__ = [
     "PointCloudGenerator",
     "PropertyType",
     "Selector",
+    "visualize_results",
 ]
