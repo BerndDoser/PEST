@@ -1,12 +1,18 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.patches import Ellipse
-from skimage import io
 
 
-def estimate_geometry_weighted(img, q0=0.2):
-    # 1. Load image and ensure it's a float for math
-    # img = io.imread(image_path, as_gray=True).astype(float)
+def estimate_geometry_weighted(img: np.ndarray, q0: float = 0.2):
+    """Estimate galaxy geometry using weighted moments.
+
+    Arguments:
+        img: Image array (can be RGB or grayscale).
+        q0: Intrinsic axis ratio for edge-on galaxies (default 0.2).
+    """
+
+    if img.ndim == 3 and img.shape[2] >= 3:  # If RGB, convert to grayscale
+        img = np.mean(img, axis=-1)
 
     # 2. Basic Background Subtraction
     # Moments are very sensitive to background noise.
