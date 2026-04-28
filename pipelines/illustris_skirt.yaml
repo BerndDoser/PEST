@@ -1,0 +1,8 @@
+source:
+  class_path: pest.IllustrisSkirtReader
+  init_args:
+    path: /urz/gpuscratch/its/doserbd/data/SKIRT_synthetic_images/fits
+    count_only: true
+
+target:
+  class_path: pest.Count
