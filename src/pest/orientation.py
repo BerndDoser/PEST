@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.patches import Ellipse
+from scipy.ndimage import rotate
 
 
 def estimate_geometry_weighted(img: np.ndarray, q0: float = 0.2):
@@ -63,6 +64,37 @@ def estimate_geometry_weighted(img: np.ndarray, q0: float = 0.2):
         "centroid": (x_c, y_c),
         "image": img,
     }
+
+
+def align_image_horizontally(img, pa_rad):
+    """Rotate the image to align the major axis horizontally."""
+
+    rotated = rotate(img, np.degrees(pa_rad), reshape=True)
+    return rotated
+
+
+def crop_quadratic(img, center, half_size):
+    """Crop a square region around the center."""
+    x_c, y_c = center
+    H, W = img.shape[:2]
+
+    col_min = int(max(0, x_c - half_size))
+    col_max = int(min(W, x_c + half_size))
+    row_min = int(max(0, y_c - half_size))
+    row_max = int(min(H, y_c + half_size))
+
+    return img[row_min:row_max, col_min:col_max]
+
+
+def reflectional_invariance(image):
+    """Reflectional invariance: ensure left half has more flux than right half."""
+    gray = np.mean(image, axis=-1) if image.ndim == 3 else image
+    left_mass = gray[:, : gray.shape[1] // 2].sum()
+    right_mass = gray[:, gray.shape[1] // 2 :].sum()
+
+    if right_mass > left_mass:
+        image = np.fliplr(image)
+    return image
 
 
 def visualize_results(stats):
