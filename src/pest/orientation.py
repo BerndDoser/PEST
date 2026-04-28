@@ -11,7 +11,8 @@ def estimate_geometry_weighted(img: np.ndarray, q0: float = 0.2):
         q0: Intrinsic axis ratio for edge-on galaxies (default 0.2).
     """
 
-    if img.ndim == 3 and img.shape[2] >= 3:  # If RGB, convert to grayscale
+    # 1. If RGB, convert to grayscale
+    if img.ndim == 3 and img.shape[2] >= 3:
         img = np.mean(img, axis=-1)
 
     # 2. Basic Background Subtraction
@@ -64,10 +65,9 @@ def estimate_geometry_weighted(img: np.ndarray, q0: float = 0.2):
     }
 
 
-# --- Visualization ---
 def visualize_results(stats):
     plt.figure(figsize=(8, 6))
-    plt.imshow(stats["image"], cmap="inferno", origin="lower")
+    plt.imshow(stats["image"], cmap="inferno")
 
     x_c, y_c = stats["centroid"]
     el = Ellipse(
@@ -85,8 +85,3 @@ def visualize_results(stats):
     plt.title(f"Inclination: {stats['inclination_deg']:.1f}°\nPA: {np.degrees(stats['pa_rad']):.1f}°")
     plt.colorbar(label="Intensity")
     plt.show()
-
-
-# Example usage:
-# res = estimate_geometry_weighted('galaxy.tif')
-# visualize_results(res)
