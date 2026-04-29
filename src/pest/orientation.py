@@ -4,12 +4,19 @@ from matplotlib.patches import Ellipse
 from scipy.ndimage import rotate
 
 
-def estimate_geometry_weighted(img: np.ndarray, q0: float = 0.2):
+def estimate_geometry_weighted(
+    img: np.ndarray,
+    q0: float = 0.2,
+    bg_subtract: float = 0.1,
+) -> dict:
     """Estimate galaxy geometry using weighted moments.
 
     Arguments:
         img: Image array (can be RGB or grayscale).
         q0: Intrinsic axis ratio for edge-on galaxies (default 0.2).
+        bg_subtract: Fraction of the median to subtract as background (default 0.1).
+    Returns:
+        Dictionary containing inclination, position angle, major/minor axes, and centroid.
     """
 
     # 1. If RGB, convert to grayscale
@@ -20,7 +27,8 @@ def estimate_geometry_weighted(img: np.ndarray, q0: float = 0.2):
     # Moments are very sensitive to background noise.
     # We subtract the median to ensure the "sky" is roughly 0.
     img -= np.median(img)
-    img[img < 0] = 0  # Clip negative values
+    noise_range = np.max(img) - np.min(img)
+    img[img < bg_subtract * noise_range] = 0  # Clip negative values
 
     # 3. Create coordinate grids
     y, x = np.indices(img.shape)
