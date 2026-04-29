@@ -24,15 +24,15 @@ class FitsDataset:
         image = fits.getdata(fits_file, 0)
         image = np.array(image, dtype=np.float32)
 
-        data = {"image": image}
+        data: dict = {"image": image}
         if self.columns:
-            splits = fits_file[: -len(".fits")].split("/")
+            splits = fits_file.parts
             for col in self.columns:
                 if col == "simulation":
                     data["simulation"] = splits[-5]
                 elif col == "snapshot":
                     data["snapshot"] = np.int32(splits[-3].split("_")[1])
                 elif col == "subhalo_id":
-                    data["subhalo_id"] = np.int32(splits[-1].split("_")[1])
+                    data["subhalo_id"] = np.int32(splits[-1][: -len(".fits")].split("_")[1])
 
         return data

@@ -6,9 +6,6 @@ from typing import List
 
 import yaml
 
-from .extractor import Extractor
-from .generator import Generator
-
 
 class Pipeline:
     """Orchestrates extraction, conversion, and generation for one or more generators.
@@ -17,7 +14,7 @@ class Pipeline:
     are only read from disk once regardless of how many output formats are requested.
     """
 
-    def __init__(self, extractor: Extractor, generators: List[Generator]):
+    def __init__(self, extractor, generators):
         """Initialize the Pipeline.
 
         Args:
@@ -38,7 +35,7 @@ class Pipeline:
         files are properly finalised even if an error occurs mid-run.
         """
         try:
-            for item in self.extractor.extract():
+            for item in self.extractor:
                 for generator in self.generators:
                     generator.process(item)
         finally:

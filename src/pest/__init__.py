@@ -18,6 +18,7 @@ from .orientation import (
     reflectional_invariance,
     visualize_results,
 )
+from .parquet_writer import ParquetWriter
 from .pipeline import Pipeline
 from .point_cloud_generator import PointCloudGenerator
 
@@ -38,6 +39,7 @@ __all__ = [
     "IllustrisExtractor",
     "IllustrisSkirtReader",
     "Pipeline",
+    "ParquetWriter",
     "PointCloudGenerator",
     "PropertyType",
     "reflectional_invariance",

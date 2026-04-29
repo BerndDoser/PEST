@@ -29,3 +29,5 @@ transformations:
 
 target:
   class_path: pest.ParquetWriter
+  init_args:
+    output_directory: output/illustris_skirt
