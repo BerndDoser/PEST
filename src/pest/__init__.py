@@ -1,6 +1,7 @@
 import importlib.metadata
 
 from .count import Count
+from .create_normalized_rgb_colors import CreateNormalizedRGBColors
 from .fits_converter import FitsConverter
 from .fits_dataset import FitsDataset
 from .fits_dataset_iter import FitsDatasetIter
@@ -24,6 +25,7 @@ __version__ = importlib.metadata.version("astro-pest")
 __all__ = [
     "align_image_horizontally",
     "Count",
+    "CreateNormalizedRGBColors",
     "crop_quadratic",
     "data_preprocess_api",
     "data_preprocess_local",
