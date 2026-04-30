@@ -4,7 +4,6 @@ from .count import Count
 from .create_normalized_rgb_colors import CreateNormalizedRGBColors
 from .fits_converter import FitsConverter
 from .fits_dataset import FitsDataset
-from .fits_dataset_iter import FitsDatasetIter
 from .gaia_converter import GaiaConverter
 from .illustris_downloader import IllustrisDownloader, PropertyType, Selector
 from .illustris_extractor import IllustrisExtractor
@@ -33,7 +32,6 @@ __all__ = [
     "estimate_geometry_weighted",
     "FitsConverter",
     "FitsDataset",
-    "FitsDatasetIter",
     "GaiaConverter",
     "IllustrisDownloader",
     "IllustrisExtractor",
