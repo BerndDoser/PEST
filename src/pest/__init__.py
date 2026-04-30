@@ -2,6 +2,7 @@ import importlib.metadata
 
 from .count import Count
 from .create_normalized_rgb_colors import CreateNormalizedRGBColors
+from .filter_unhealthy_data import FilterUnhealthyData
 from .fits_converter import FitsConverter
 from .fits_dataset import FitsDataset
 from .gaia_converter import GaiaConverter
@@ -30,6 +31,7 @@ __all__ = [
     "data_preprocess_api",
     "data_preprocess_local",
     "estimate_geometry_weighted",
+    "FilterUnhealthyData",
     "FitsConverter",
     "FitsDataset",
     "GaiaConverter",

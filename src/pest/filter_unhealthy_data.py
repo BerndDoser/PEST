@@ -1,0 +1,15 @@
+import numpy as np
+
+
+class FilterUnhealthyData:
+    """Filter out unhealthy images (NaN, Inf, or all pixels the same).
+
+    Designed to be used with HuggingFace datasets.filter(batched=False).
+    Returns True if the sample is healthy (keep), False otherwise (discard).
+    """
+
+    is_filter = True
+
+    def __call__(self, sample: dict) -> bool:
+        image = np.array(sample["image"])
+        return not (np.isnan(image).any() or np.isinf(image).any() or np.all(image == image.flat[0]))
