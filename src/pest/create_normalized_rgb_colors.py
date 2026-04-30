@@ -4,11 +4,11 @@ import numpy as np
 class CreateNormalizedRGBColors:
     def __init__(
         self,
-        stretch: float,
-        range: int,
-        lower_limit: float,
-        channel_combinations: list[list[int]],
-        scalers: list[float],
+        stretch: float = 0.9,
+        range: int = 5,
+        lower_limit: float = 0.001,
+        channel_combinations: list[list[int]] = [[2, 3], [1, 0], [0]],
+        scalers: list[float] = [0.7, 0.5, 1.3],
     ):
         """
         Initialize CreateNormalizedRGBColors.
