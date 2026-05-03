@@ -3,8 +3,7 @@ num_workers: 4
 extract:
   class_path: pest.FitsDataset
   init_args:
-    # path: data/SKIRT_synthetic_images/fits
-    path: data/fits
+    path: data/SKIRT_synthetic_images/fits
     columns:
       - image
       - simulation
@@ -21,7 +20,7 @@ transform:
             lower_limit: 0.001
             channel_combinations: [[2, 3], [1, 0], [0]]
             scalers: [0.7, 0.5, 1.3]
-      # - class_path: pest.RemoveInvalidImages
+      - class_path: pest.RemoveInvalidImages
       # - class_path: pest.AlignImageHorizontally
       # - class_path: pest.CropQuadratic
       - class_path: pest.ResizeImage

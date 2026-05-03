@@ -1,19 +1,10 @@
-import importlib
-
 from datasets import Dataset
 
 
-def _instantiate(class_path: str, init_args: dict):
-    """Instantiate a class from a dotted ``module.ClassName`` string."""
-    module_path, class_name = class_path.rsplit(".", 1)
-    module = importlib.import_module(module_path)
-    cls = getattr(module, class_name)
-    return cls(**init_args)
-
-
 class ParquetWriter:
-    def __init__(self, output_path: str):
+    def __init__(self, output_path: str, chunk_size: int = None):
         self.output_path = output_path
+        self.chunk_size = chunk_size
 
     def __call__(self, dataset: Dataset):
-        dataset.to_parquet(self.output_path)
+        dataset.to_parquet(self.output_path, batch_size=self.chunk_size)

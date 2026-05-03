@@ -21,6 +21,7 @@ from .orientation import (
 from .parquet_writer import ParquetWriter
 from .pipeline import Pipeline
 from .point_cloud_generator import PointCloudGenerator
+from .remove_invalid_images import RemoveInvalidImages
 from .resize_image import ResizeImage
 
 __version__ = importlib.metadata.version("astro-pest")
@@ -44,6 +45,7 @@ __all__ = [
     "PointCloudGenerator",
     "PropertyType",
     "reflectional_invariance",
+    "RemoveInvalidImages",
     "ResizeImage",
     "Selector",
     "visualize_results",
