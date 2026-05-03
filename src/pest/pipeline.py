@@ -26,7 +26,7 @@ class Pipeline:
         config: dict,
     ):
         self.config = config
-        self.num_proc = config.get("num_proc", 1)
+        self.num_workers = config.get("num_workers", 1)
 
     def run(self) -> None:
         """Run the pipeline: extract, transform, and load data."""
@@ -39,7 +39,7 @@ class Pipeline:
                 "class_path": extract_cfg["class_path"],
                 "init_args": extract_cfg.get("init_args", {}),
             },
-            num_proc=self.num_proc,
+            num_proc=self.num_workers,
         )
 
         # Transform
@@ -52,14 +52,14 @@ class Pipeline:
                 transform = _instantiate(transform_cfg["class_path"], transform_cfg.get("init_args", {}))
 
                 if getattr(transform, "is_filter", False):
-                    ds = ds.filter(transform, batched=False, num_proc=self.num_proc)
+                    ds = ds.filter(transform, batched=False, num_proc=self.num_workers)
                 else:
 
                     def apply(batch, t=transform):
                         batch["image"] = [t(np.array(img)) for img in batch["image"]]
                         return batch
 
-                    ds = ds.map(apply, batched=True, num_proc=self.num_proc)
+                    ds = ds.map(apply, batched=True, num_proc=self.num_workers)
 
         # Load
         load_cfgs = self.config.get("load", [])

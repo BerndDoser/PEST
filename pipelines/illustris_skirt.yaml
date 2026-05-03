@@ -1,3 +1,5 @@
+num_workers: 4
+
 extract:
   class_path: pest.FitsDataset
   init_args:
@@ -22,7 +24,9 @@ transform:
       # - class_path: pest.RemoveInvalidImages
       # - class_path: pest.AlignImageHorizontally
       # - class_path: pest.CropQuadratic
-      # - class_path: pest.ResizeImage
+      - class_path: pest.ResizeImage
+        init_args:
+          size: [128, 128]
       # - class_path: pest.ReflectionalInvariance
       # - class_path: pest.MinMaxNormalize
       #   init_args:
