@@ -1,6 +1,7 @@
 import argparse
 import importlib
 
+import numpy as np
 import yaml
 from datasets import Dataset
 
@@ -29,8 +30,9 @@ class Pipeline:
 
     def run(self) -> None:
         """Run the pipeline: extract, transform, and load data."""
-        extract_cfg = self.config["extract"]
 
+        # Extract
+        extract_cfg = self.config["extract"]
         ds = Dataset.from_generator(
             load_records,
             gen_kwargs={
@@ -40,20 +42,26 @@ class Pipeline:
             num_proc=self.num_proc,
         )
 
+        # Transform
         transform_cfgs = self.config.get("transform", [])
-        transforms = [_instantiate(cfg["class_path"], cfg.get("init_args", {})) for cfg in transform_cfgs]
+        for column_cfs in transform_cfgs:
+            if column_cfs["column"] != "image":
+                raise NotImplementedError("Currently only 'image' column transformations are supported.")
 
-        for transform in transforms:
-            if getattr(transform, "is_filter", False):
-                ds = ds.filter(transform, batched=False, num_proc=self.num_proc)
-            else:
+            for transform_cfg in column_cfs.get("transformations", []):
+                transform = _instantiate(transform_cfg["class_path"], transform_cfg.get("init_args", {}))
 
-                def apply(batch, t=transform):
-                    batch["image"] = [t(np.array(img)) for img in batch["image"]]
-                    return batch
+                if getattr(transform, "is_filter", False):
+                    ds = ds.filter(transform, batched=False, num_proc=self.num_proc)
+                else:
 
-                ds = ds.map(apply, batched=True, num_proc=self.num_proc)
+                    def apply(batch, t=transform):
+                        batch["image"] = [t(np.array(img)) for img in batch["image"]]
+                        return batch
 
+                    ds = ds.map(apply, batched=True, num_proc=self.num_proc)
+
+        # Load
         load_cfgs = self.config.get("load", [])
         loads = [_instantiate(cfg["class_path"], cfg.get("init_args", {})) for cfg in load_cfgs]
 
