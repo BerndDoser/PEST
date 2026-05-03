@@ -42,7 +42,7 @@ target:
 
       - name: image
         generator:
-          class_path: pest.ObticalImageGenerator # from Sebastian
+          class_path: pest.OpticalImageGenerator
           init_args:
             image_size: 128
             smoothing: 0.0

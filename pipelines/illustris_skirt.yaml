@@ -1,14 +1,15 @@
-source:
+extract:
   class_path: pest.FitsDataset
   init_args:
-    path: /urz/gpuscratch/its/doserbd/data/SKIRT_synthetic_images/fits
+    # path: data/SKIRT_synthetic_images/fits
+    path: data/fits
     columns:
       - image
       - simulation
       - snapshot
       - subhalo_id
 
-transformations:
+transform:
   - column: image
     transformations:
       - class_path: pest.CreateNormalizedRGBColors
@@ -27,7 +28,7 @@ transformations:
         init_args:
           feature_range: [0, 1]
 
-target:
-  class_path: pest.ParquetWriter
-  init_args:
-    output_directory: output/illustris_skirt
+load:
+  - class_path: pest.ParquetWriter
+    init_args:
+      output_directory: output/illustris_skirt

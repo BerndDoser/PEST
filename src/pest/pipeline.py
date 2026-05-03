@@ -1,46 +1,8 @@
-"""Pipeline orchestrating extract → convert → generate for multiple generators."""
-
 import argparse
 import importlib
-from typing import List
 
 import yaml
-
-
-class Pipeline:
-    """Orchestrates extraction, conversion, and generation for one or more generators.
-
-    The same extraction pass feeds every registered generator, so large simulations
-    are only read from disk once regardless of how many output formats are requested.
-    """
-
-    def __init__(self, extractor, generators):
-        """Initialize the Pipeline.
-
-        Args:
-            extractor: An Extractor instance (e.g. IllustrisExtractor) used to
-                produce raw particle data.
-            generators: One or more Generator instances (e.g. PointCloudGenerator)
-                that will receive each converted Galaxy object.
-        """
-        self.extractor = extractor
-        self.generators = generators
-
-    def run(self) -> None:
-        """Run the full extract → convert → generate pipeline.
-
-        Calls ``extractor.extract()``, converts the result to Galaxy objects via
-        ``build_galaxies()``, and feeds each Galaxy to every registered generator.
-        Each generator's ``close()`` is called in a ``finally`` block so output
-        files are properly finalised even if an error occurs mid-run.
-        """
-        try:
-            for item in self.extractor:
-                for generator in self.generators:
-                    generator.process(item)
-        finally:
-            for generator in self.generators:
-                generator.close()
+from datasets import Dataset
 
 
 def _instantiate(class_path: str, init_args: dict):
@@ -49,6 +11,54 @@ def _instantiate(class_path: str, init_args: dict):
     module = importlib.import_module(module_path)
     cls = getattr(module, class_name)
     return cls(**init_args)
+
+
+def load_records(class_path, init_args):
+    dataset = _instantiate(class_path, init_args)
+    for item in dataset:
+        yield item
+
+
+class Pipeline:
+    def __init__(
+        self,
+        config: dict,
+    ):
+        self.config = config
+        self.num_proc = config.get("num_proc", 1)
+
+    def run(self) -> None:
+        """Run the pipeline: extract, transform, and load data."""
+        extract_cfg = self.config["extract"]
+
+        ds = Dataset.from_generator(
+            load_records,
+            gen_kwargs={
+                "class_path": extract_cfg["class_path"],
+                "init_args": extract_cfg.get("init_args", {}),
+            },
+            num_proc=self.num_proc,
+        )
+
+        transform_cfgs = self.config.get("transform", [])
+        transforms = [_instantiate(cfg["class_path"], cfg.get("init_args", {})) for cfg in transform_cfgs]
+
+        for transform in transforms:
+            if getattr(transform, "is_filter", False):
+                ds = ds.filter(transform, batched=False, num_proc=self.num_proc)
+            else:
+
+                def apply(batch, t=transform):
+                    batch["image"] = [t(np.array(img)) for img in batch["image"]]
+                    return batch
+
+                ds = ds.map(apply, batched=True, num_proc=self.num_proc)
+
+        load_cfgs = self.config.get("load", [])
+        loads = [_instantiate(cfg["class_path"], cfg.get("init_args", {})) for cfg in load_cfgs]
+
+        for load in loads:
+            load(ds)
 
 
 def main() -> None:
@@ -63,13 +73,7 @@ def main() -> None:
     with open(args.config) as fh:
         config = yaml.safe_load(fh)
 
-    source_cfg = config["source"]
-    extractor = _instantiate(source_cfg["class_path"], source_cfg.get("init_args", {}))
-
-    target_cfg = config["target"]
-    generator = _instantiate(target_cfg["class_path"], target_cfg.get("init_args", {}))
-
-    Pipeline(extractor, [generator]).run()
+    Pipeline(config).run()
 
 
 if __name__ == "__main__":
