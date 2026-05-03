@@ -8,7 +8,7 @@ class AlignImageHorizontally:
 
     def __call__(self, image: np.ndarray) -> np.ndarray:
         # Pipeline format is (C, H, W); orientation functions expect (H, W, C)
-        img_hwc = np.moveaxis(image, 0, -1)
-        stats = estimate_geometry_weighted(img_hwc.copy())
-        rotated_hwc = align_image_horizontally(img_hwc, stats["pa_rad"])
-        return np.moveaxis(rotated_hwc, -1, 0).astype(image.dtype)
+        image = image.transpose(1, 2, 0)
+        stats = estimate_geometry_weighted(image)
+        image = align_image_horizontally(image, stats["pa_rad"])
+        return image.transpose(2, 0, 1)
