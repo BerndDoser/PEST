@@ -1,4 +1,4 @@
-num_workers: 4
+num_workers: 8
 
 extract:
   class_path: pest.FitsDataset
@@ -21,8 +21,11 @@ transform:
             channel_combinations: [[2, 3], [1, 0], [0]]
             scalers: [0.7, 0.5, 1.3]
       - class_path: pest.RemoveInvalidImages
-      # - class_path: pest.AlignImageHorizontally
-      # - class_path: pest.CropQuadratic
+      - class_path: pest.AlignImageHorizontally
+      - class_path: pest.FilterInclinationAngle
+        init_args:
+          max_inclination: 60
+      - class_path: pest.CropQuadratic
       - class_path: pest.ResizeImage
         init_args:
           size: [128, 128]

@@ -1,7 +1,10 @@
 import importlib.metadata
 
+from .align_image_horizontally import AlignImageHorizontally
 from .count import Count
 from .create_normalized_rgb_colors import CreateNormalizedRGBColors
+from .crop_quadratic import CropQuadratic
+from .filter_inclination_angle import FilterInclinationAngle
 from .filter_unhealthy_data import FilterUnhealthyData
 from .fits_converter import FitsConverter
 from .fits_dataset import FitsDataset
@@ -27,12 +30,15 @@ from .resize_image import ResizeImage
 __version__ = importlib.metadata.version("astro-pest")
 __all__ = [
     "align_image_horizontally",
+    "AlignImageHorizontally",
     "Count",
     "CreateNormalizedRGBColors",
     "crop_quadratic",
+    "CropQuadratic",
     "data_preprocess_api",
     "data_preprocess_local",
     "estimate_geometry_weighted",
+    "FilterInclinationAngle",
     "FilterUnhealthyData",
     "FitsConverter",
     "FitsDataset",
