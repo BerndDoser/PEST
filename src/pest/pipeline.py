@@ -56,7 +56,19 @@ class Pipeline:
                 else:
 
                     def apply(batch, t=transform):
-                        batch["image"] = [t(np.array(img)) for img in batch["image"]]
+                        images = []
+                        for i, img in enumerate(batch["image"]):
+                            try:
+                                images.append(t(np.array(img)))
+                            except Exception as e:
+                                print(
+                                    f"Transform {t.__class__.__name__} failed for "
+                                    f"simulation={batch.get('simulation', [None])[i]}, "
+                                    f"snapshot={batch.get('snapshot', [None])[i]}, "
+                                    f"subhalo_id={batch.get('subhalo_id', [None])[i]}: {e}"
+                                )
+                                raise
+                        batch["image"] = images
                         return batch
 
                     ds = ds.map(apply, batched=True, num_proc=self.num_workers)
