@@ -1,4 +1,13 @@
-from datasets import Dataset
+from datasets import Array3D, Dataset, Features, Value
 
-dataset = Dataset.from_parquet("/urz/gpuscratch/its/doserbd/data/SKIRT_synthetic_images/parquet-v4-128/0.parquet")
-dataset.push_to_hub("bernddoser/illustris-skirt", max_shard_size="500MB")
+features = Features(
+    {
+        "image": Array3D(shape=(3, 128, 128), dtype="float32"),
+        "simulation": Value("string"),
+        "snapshot": Value("int32"),
+        "subhalo_id": Value("int32"),
+    }
+)
+
+dataset = Dataset.from_parquet("output/illustris_skirt_small.parquet", features=features)
+dataset.push_to_hub("bernddoser/Illustris_TNG_SKIRT_SDSS", max_shard_size="500MB", private=True)

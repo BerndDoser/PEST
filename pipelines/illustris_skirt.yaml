@@ -5,7 +5,7 @@ seed: 42
 extract:
   class_path: pest.FitsDataset
   init_args:
-    path: data/SKIRT_synthetic_images_small/fits
+    path: data/SKIRT_synthetic_images/fits
     columns:
       - image
       - simulation
