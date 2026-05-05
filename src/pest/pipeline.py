@@ -4,6 +4,7 @@ import importlib
 import numpy as np
 import yaml
 from datasets import Dataset
+from ipykernel.utils import T
 
 
 def _instantiate(class_path: str, init_args: dict):
@@ -27,6 +28,8 @@ class Pipeline:
     ):
         self.config = config
         self.num_workers = config.get("num_workers", 1)
+        self.shuffle = config.get("shuffle", True)
+        self.seed = config.get("seed", 42)
 
     def run(self) -> None:
         """Run the pipeline: extract, transform, and load data."""
@@ -41,6 +44,10 @@ class Pipeline:
             },
             num_proc=self.num_workers,
         )
+
+        # Shuffle before transformations to ensure randomness in filtering and augmentation
+        if self.shuffle:
+            ds = ds.shuffle(seed=self.seed, num_proc=self.num_workers)
 
         # Transform
         transform_cfgs = self.config.get("transform", [])
