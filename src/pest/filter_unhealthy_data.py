@@ -1,5 +1,7 @@
 import numpy as np
 
+from .orientation import estimate_geometry_weighted
+
 
 class FilterUnhealthyData:
     """Filter out unhealthy images (NaN, Inf, or all pixels the same).
@@ -12,4 +14,10 @@ class FilterUnhealthyData:
 
     def __call__(self, sample: dict) -> bool:
         image = np.array(sample["image"])
-        return not (np.isnan(image).any() or np.isinf(image).any() or np.all(image == image.flat[0]))
+        if np.isnan(image).any() or np.isinf(image).any() or np.all(image == image.flat[0]):
+            return False
+        image = image.transpose(1, 2, 0)
+        stats = estimate_geometry_weighted(image)
+        if np.isnan(stats["pa_rad"]):
+            return False
+        return True
