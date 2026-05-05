@@ -1,7 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.patches import Ellipse
-from scipy.ndimage import rotate
 
 
 def estimate_geometry_weighted(

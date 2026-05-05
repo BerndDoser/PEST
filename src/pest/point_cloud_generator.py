@@ -42,8 +42,8 @@ class PointCloudGenerator(Generator):
 
         os.makedirs(output_directory, exist_ok=True)
 
-    def add_galaxy(self, galaxy: Galaxy):
-        """Add a galaxy to the dataset and write it immediately as a new row to the Parquet file."""
+    def process(self, galaxy: Galaxy):
+        """Process a galaxy and write it immediately as a new row to the Parquet file."""
         galaxy_data = {}
 
         for column in self.columns:
