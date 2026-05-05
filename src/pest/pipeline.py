@@ -4,7 +4,6 @@ import importlib
 import numpy as np
 import yaml
 from datasets import Dataset
-from ipykernel.utils import T
 
 
 def _instantiate(class_path: str, init_args: dict):

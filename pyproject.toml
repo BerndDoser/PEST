@@ -42,6 +42,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.ruff]
 line-length = 120
+exclude = ["devel/pynbody_sebastian.ipynb"]
 
 [tool.ruff.lint.mccabe]
 max-complexity = 10
