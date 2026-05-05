@@ -13,7 +13,10 @@ class FitsDataset:
 
     def __init__(self, path: str, columns: list[str] | None = None):
         self.path = Path(path)
-        self.files = sorted(self.path.rglob("*.fits"))
+        if self.path.is_file():
+            self.files = [self.path]
+        else:
+            self.files = sorted(self.path.rglob("*.fits"))
         self.columns = columns
 
     def __len__(self) -> int:
