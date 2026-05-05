@@ -1,6 +1,7 @@
 import numpy as np
+from scipy.ndimage import rotate
 
-from .orientation import align_image_horizontally, estimate_geometry_weighted
+from .orientation import estimate_geometry_weighted
 
 
 class AlignImageHorizontally:
@@ -10,5 +11,5 @@ class AlignImageHorizontally:
         # Pipeline format is (C, H, W); orientation functions expect (H, W, C)
         image = image.transpose(1, 2, 0)
         stats = estimate_geometry_weighted(image)
-        image = align_image_horizontally(image, stats["pa_rad"])
+        image = rotate(image, np.degrees(stats["pa_rad"]), reshape=True)
         return image.transpose(2, 0, 1)

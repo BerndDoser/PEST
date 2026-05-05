@@ -14,25 +14,22 @@ from .illustris_extractor import IllustrisExtractor
 from .illustris_preprocess_api import data_preprocess_api
 from .illustris_preprocess_local import data_preprocess_local
 from .illustris_skirt_reader import IllustrisSkirtReader
+from .min_max_normalize import MinMaxNormalize
 from .orientation import (
-    align_image_horizontally,
-    crop_quadratic,
     estimate_geometry_weighted,
-    reflectional_invariance,
     visualize_results,
 )
 from .parquet_writer import ParquetWriter
 from .pipeline import Pipeline
 from .point_cloud_generator import PointCloudGenerator
+from .reflectional_invariance import ReflectionalInvariance
 from .resize_image import ResizeImage
 
 __version__ = importlib.metadata.version("astro-pest")
 __all__ = [
-    "align_image_horizontally",
     "AlignImageHorizontally",
     "Count",
     "CreateNormalizedRGBColors",
-    "crop_quadratic",
     "CropQuadratic",
     "data_preprocess_api",
     "data_preprocess_local",
@@ -45,11 +42,12 @@ __all__ = [
     "IllustrisDownloader",
     "IllustrisExtractor",
     "IllustrisSkirtReader",
+    "MinMaxNormalize",
     "Pipeline",
     "ParquetWriter",
     "PointCloudGenerator",
     "PropertyType",
-    "reflectional_invariance",
+    "ReflectionalInvariance",
     "ResizeImage",
     "Selector",
     "visualize_results",

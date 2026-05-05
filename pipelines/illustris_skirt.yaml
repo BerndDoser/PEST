@@ -1,9 +1,11 @@
-num_workers: 10
+num_workers: 32
+shuffle: True
+seed: 42
 
 extract:
   class_path: pest.FitsDataset
   init_args:
-    path: data/SKIRT_synthetic_images/fits
+    path: data/SKIRT_synthetic_images_small/fits
     columns:
       - image
       - simulation
@@ -29,10 +31,10 @@ transform:
       - class_path: pest.ResizeImage
         init_args:
           size: [128, 128]
-      # - class_path: pest.ReflectionalInvariance
-      # - class_path: pest.MinMaxNormalize
-      #   init_args:
-      #     feature_range: [0, 1]
+      - class_path: pest.ReflectionalInvariance
+      - class_path: pest.MinMaxNormalize
+        init_args:
+          feature_range: [0, 1]
 
 load:
   - class_path: pest.ParquetWriter

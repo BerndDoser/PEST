@@ -47,7 +47,7 @@ class Pipeline:
 
         # Shuffle before transformations to ensure randomness in filtering and augmentation
         if self.shuffle:
-            ds = ds.shuffle(seed=self.seed, num_proc=self.num_workers)
+            ds = ds.shuffle(seed=self.seed)
 
         # Transform
         transform_cfgs = self.config.get("transform", [])
