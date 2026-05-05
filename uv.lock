@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.14' and sys_platform == 'win32'",
@@ -184,7 +184,6 @@ source = { editable = "." }
 dependencies = [
     { name = "gaiaxpy" },
     { name = "h5py" },
-    { name = "ipywidgets" },
     { name = "matplotlib" },
     { name = "pandas" },
     { name = "pyarrow" },
@@ -198,6 +197,7 @@ dependencies = [
 [package.optional-dependencies]
 dev = [
     { name = "ipykernel" },
+    { name = "ipywidgets" },
     { name = "pytest" },
     { name = "ruff" },
 ]
@@ -213,7 +213,7 @@ requires-dist = [
     { name = "h5py", specifier = ">=3.12" },
     { name = "huggingface-hub", marker = "extra == 'hf'", specifier = ">=0.33" },
     { name = "ipykernel", marker = "extra == 'dev'", specifier = ">=6.29" },
-    { name = "ipywidgets", specifier = ">=8.1.8" },
+    { name = "ipywidgets", marker = "extra == 'dev'", specifier = ">=8.1.8" },
     { name = "matplotlib", specifier = ">=3.10" },
     { name = "pandas", specifier = ">=3.0.1" },
     { name = "pyarrow", specifier = ">=20.0" },
