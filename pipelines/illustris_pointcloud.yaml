@@ -1,8 +1,12 @@
-source:
+num_workers: 4
+shuffle: True
+seed: 42
+
+extract:
   class_path: pest.IllustrisExtractor
   init_args:
-    simulation_path: /home/doserbd/data/illustris/Illustris-3
-    simulation: TNG50
+    simulation_path: /urz/gpuscratch/its/data/Illustris
+    simulation: TNG50-1
     snapshot: 99
     objects: centrals
     component:
@@ -26,37 +30,7 @@ source:
           - masses
           - positions
 
-target:
-  class_path: pest.ParquetWriter
-  init_args:
-    output_directory: /home/doserbd/data/illustris/parquet/point-cloud
-    compression: snappy
-    chunk_size: 1000
-
-    columns:
-      - name: skirt
-        generator:
-          class_path: pest.SKIRTGenerator
-          init_args:
-            image_size: 128
-
-      - name: image
-        generator:
-          class_path: pest.OpticalImageGenerator
-          init_args:
-            image_size: 128
-            smoothing: 0.0
-            fov: scaled
-            image_scale: log
-            orientation: original
-
-      - name: point-cloud
-        generator:
-          class_path: pest.PointCloudGenerator
-          init_args:
-            image_size: 128
-            image_depth: 1.0
-            smoothing: 0.0
-            fov: scaled
-            image_scale: log
-            orientation: original
+load:
+  - class_path: pest.ParquetWriter
+    init_args:
+      output_path: output/illustris_pointcloud.parquet
