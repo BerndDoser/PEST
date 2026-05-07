@@ -25,7 +25,7 @@ transform:
       - class_path: pest.FilterUnhealthyData
       - class_path: pest.FilterTruncatedGalaxies
         init_args:
-          threshold: 0.5
+          threshold: 0.4
       - class_path: pest.AlignImageHorizontally
       - class_path: pest.FilterInclinationAngle
         init_args:
