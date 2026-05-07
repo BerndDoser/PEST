@@ -33,6 +33,6 @@ class Crop:
         # Pipeline format is (C, H, W); orientation functions expect (H, W, C)
         img_hwc = np.moveaxis(image, 0, -1)
         stats = estimate_geometry_weighted(img_hwc.copy())
-        half_size = self.relative_size * stats["major_axis"]
+        half_size = stats["major_axis"] / self.relative_size
         cropped_hwc = self.crop_(img_hwc, stats["centroid"], half_size)
         return np.moveaxis(cropped_hwc, -1, 0).astype(image.dtype)
