@@ -28,6 +28,8 @@ transform:
         init_args:
           max_inclination: 60
       - class_path: pest.CropQuadratic
+        init_args:
+          scale: 2
       - class_path: pest.ResizeImage
         init_args:
           size: [128, 128]
