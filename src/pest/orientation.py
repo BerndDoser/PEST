@@ -25,9 +25,10 @@ def estimate_geometry_weighted(
     # 2. Basic Background Subtraction
     # Moments are very sensitive to background noise.
     # We subtract the median to ensure the "sky" is roughly 0.
-    img -= np.median(img)
-    noise_range = np.max(img) - np.min(img)
-    img[img < bg_subtract * noise_range] = 0  # Clip negative values
+    if bg_subtract != 0:
+        img -= np.median(img)
+        noise_range = np.max(img) - np.min(img)
+        img[img < bg_subtract * noise_range] = 0  # Clip negative values
 
     # 3. Create coordinate grids
     y, x = np.indices(img.shape)
