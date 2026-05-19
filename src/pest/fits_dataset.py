@@ -9,9 +9,14 @@ class FitsDataset:
 
     Args:
         path (str): Path to the directory containing FITS files.
+        columns (list[str] | None): List of columns to extract from the FITS files.
     """
 
-    def __init__(self, path: str, columns: list[str] | None = None):
+    def __init__(
+        self,
+        path: str,
+        columns: list[str] | None = None,
+    ) -> None:
         self.path = Path(path)
         if self.path.is_file():
             self.files = [self.path]
