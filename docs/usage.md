@@ -62,7 +62,7 @@ extract:
   class_path: pest.FitsDataset
   init_args:
     path: data/fits
-    columns: [image, simulation, snapshot, subhalo_id, sersic_n]
+    columns: [image, simulation, snapshot, subhalo_id, [sersic_n, r]]
 
 transform:
   - column: image
