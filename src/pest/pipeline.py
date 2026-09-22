@@ -1,11 +1,38 @@
 import argparse
 import importlib
+import importlib.metadata
+import os
+import subprocess
 import sys
 import time
 
 import numpy as np
 import yaml
 from datasets import Dataset, disable_progress_bars
+
+
+def _git_commit() -> str:
+    """Return the short git commit hash of the current checkout, if available."""
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=os.path.dirname(__file__),
+            stderr=subprocess.DEVNULL,
+            text=True,
+        ).strip()
+    except (subprocess.CalledProcessError, OSError):
+        return "unknown"
+
+
+def print_header() -> None:
+    """Print a header with the PEST version and git commit."""
+    version = importlib.metadata.version("astro-pest")
+    commit = _git_commit()
+    title = f"PEST pipeline v{version} ({commit})"
+    width = len(title) + 4
+    print("=" * width)
+    print(f"  {title}")
+    print("=" * width)
 
 
 def _instantiate(class_path: str, init_args: dict):
@@ -116,6 +143,9 @@ class Pipeline:
 
 def main() -> None:
     """CLI entry point: read a YAML config file and run the pipeline."""
+
+    print_header()
+
     parser = argparse.ArgumentParser(
         prog="pest",
         description="Preprocessing Engine for Spherinator Training",

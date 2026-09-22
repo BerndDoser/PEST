@@ -7,7 +7,7 @@ from astropy.io import fits
 MORPHS_FILENAME_TEMPLATE = "morphs_{band}.hdf5"
 
 
-class FitsDataset:
+class IllustrisSkirtDataset:
     """PyTorch Dataset for the Illustris SKIRT dataset in FITS format.
 
     Args:
@@ -51,10 +51,12 @@ class FitsDataset:
 
     def __getitem__(self, index: int) -> dict:
         fits_file = self.files[index]
-        image = fits.getdata(fits_file, 0)
-        image = np.array(image, dtype=np.float32)
 
-        data: dict = {"image": image}
+        data: dict = {}
+        if self.columns is None or "image" in self.columns:
+            image = fits.getdata(fits_file, 0)
+            data["image"] = np.array(image, dtype=np.float32)
+
         if self.columns:
             splits = fits_file.parts
             subhalo_id = None
