@@ -45,6 +45,7 @@ docs = [
 
 [project.scripts]
 pest = "pest.pipeline:main"
+pest-download-skirt = "pest.illustris_skirt_downloader:main"
 
 [build-system]
 requires = ["setuptools >= 61.0"]

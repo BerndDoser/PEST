@@ -12,6 +12,7 @@ from .fits_converter import FitsConverter
 from .fits_dataset import FitsDataset
 from .gaia_converter import GaiaConverter
 from .gaussian_blur import GaussianBlur
+from .illustris_skirt_downloader import download_files, get_illustris_api_key
 from .min_max_normalize import MinMaxNormalize
 from .orientation import estimate_geometry_weighted, visualize_results
 from .parquet_writer import ParquetWriter
@@ -40,6 +41,8 @@ __all__ = [
     "PointCloudGenerator",
     "ReflectionalInvariance",
     "ResizeImage",
+    "download_files",
     "estimate_geometry_weighted",
+    "get_illustris_api_key",
     "visualize_results",
 ]
