@@ -24,8 +24,7 @@ Built-in extractors:
 
 | Class | Input |
 |---|---|
-| `IllustrisExtractor` | Local IllustrisTNG snapshots |
-| `FitsDataset` | Directory of FITS images |
+| `IllustrisSkirtDataset` | Directory of FITS images |
 
 ### Transform
 
@@ -59,7 +58,7 @@ shuffle: true        # shuffle before transformations
 seed: 42
 
 extract:
-  class_path: pest.FitsDataset
+  class_path: pest.IllustrisSkirtDataset
   init_args:
     path: data/fits
     columns: [image, simulation, snapshot, subhalo_id, [sersic_n, r]]

@@ -9,9 +9,9 @@ from .filter_inclination_angle import FilterInclinationAngle
 from .filter_truncated_galaxies import FilterTruncatedGalaxies
 from .filter_unhealthy_data import FilterUnhealthyData
 from .fits_converter import FitsConverter
-from .fits_dataset import FitsDataset
 from .gaia_converter import GaiaConverter
 from .gaussian_blur import GaussianBlur
+from .illustris_skirt_dataset import IllustrisSkirtDataset
 from .min_max_normalize import MinMaxNormalize
 from .orientation import estimate_geometry_weighted, visualize_results
 from .parquet_writer import ParquetWriter
@@ -31,9 +31,9 @@ __all__ = [
     "FilterTruncatedGalaxies",
     "FilterUnhealthyData",
     "FitsConverter",
-    "FitsDataset",
     "GaiaConverter",
     "GaussianBlur",
+    "IllustrisSkirtDataset",
     "MinMaxNormalize",
     "ParquetWriter",
     "Pipeline",
