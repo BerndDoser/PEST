@@ -11,11 +11,22 @@ import yaml
 
 
 def _git_commit() -> str:
-    """Return the short git commit hash of the current checkout, if available."""
+    """Return the short git commit hash of the running source checkout, if available."""
+    pkg_dir = os.path.dirname(__file__)
     try:
+        # A non-editable install just copies this file into site-packages,
+        # which may happen to sit inside some unrelated project's git
+        # checkout. Only trust the result if this file is actually tracked
+        # by the repo found there.
+        subprocess.check_output(
+            ["git", "ls-files", "--error-unmatch", os.path.basename(__file__)],
+            cwd=pkg_dir,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
         return subprocess.check_output(
             ["git", "rev-parse", "--short", "HEAD"],
-            cwd=os.path.dirname(__file__),
+            cwd=pkg_dir,
             stderr=subprocess.DEVNULL,
             text=True,
         ).strip()

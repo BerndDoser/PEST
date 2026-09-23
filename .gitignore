@@ -9,3 +9,4 @@ __pycache__/
 /devel/images/
 /devel/testdata/
 /output/
+build/
