@@ -177,10 +177,8 @@ name = "astro-pest"
 version = "0.2.0"
 source = { editable = "." }
 dependencies = [
-    { name = "datasets" },
     { name = "gaiaxpy" },
     { name = "h5py" },
-    { name = "huggingface-hub" },
     { name = "matplotlib" },
     { name = "pandas" },
     { name = "pyarrow" },
@@ -193,6 +191,7 @@ dependencies = [
 
 [package.optional-dependencies]
 dev = [
+    { name = "datasets" },
     { name = "ipykernel" },
     { name = "ipywidgets" },
     { name = "isort" },
@@ -208,13 +207,18 @@ docs = [
     { name = "sphinx-rtd-theme" },
     { name = "sphinxcontrib-bibtex" },
 ]
+hf = [
+    { name = "datasets" },
+    { name = "huggingface-hub" },
+]
 
 [package.metadata]
 requires-dist = [
-    { name = "datasets", specifier = ">=4.0" },
+    { name = "datasets", marker = "extra == 'dev'", specifier = ">=4.0" },
+    { name = "datasets", marker = "extra == 'hf'", specifier = ">=4.0" },
     { name = "gaiaxpy", specifier = ">=2.1" },
     { name = "h5py", specifier = ">=3.12" },
-    { name = "huggingface-hub", specifier = ">=0.33" },
+    { name = "huggingface-hub", marker = "extra == 'hf'", specifier = ">=0.33" },
     { name = "ipykernel", marker = "extra == 'dev'", specifier = ">=6.29" },
     { name = "ipywidgets", marker = "extra == 'dev'", specifier = ">=8.1.8" },
     { name = "isort", marker = "extra == 'dev'", specifier = ">=8.0.1" },
@@ -236,7 +240,7 @@ requires-dist = [
     { name = "sphinx-rtd-theme", marker = "extra == 'docs'", specifier = ">=3.0" },
     { name = "sphinxcontrib-bibtex", marker = "extra == 'docs'", specifier = ">=2.6.3" },
 ]
-provides-extras = ["dev", "docs"]
+provides-extras = ["hf", "dev", "docs"]
 
 [[package]]
 name = "astropy"

@@ -17,6 +17,10 @@ Run a pipeline from the command line:
 pest pipelines/illustris_skirt.yaml
 ```
 
+Extraction and transformation are fused into a single pass: each worker loads
+one record and immediately runs the whole transform chain on it, instead of
+rewriting the full dataset to disk once per transformation step.
+
 ### Extract
 
 An extractor class yields one record per object (e.g. galaxy).
@@ -44,11 +48,13 @@ Classes that set `is_filter = True` are used as filters (rows are dropped); othe
 
 ### Load
 
-Loaders persist the processed dataset.
+Loaders persist the processed dataset. Multiple loaders can be chained; each
+receives the same (in-memory, already-transformed) records.
 
 | Class | Output |
 |---|---|
-| `ParquetWriter` | Apache Parquet file (HuggingFace `datasets` compatible) |
+| `ParquetWriter` | Apache Parquet file, written in row-group batches as records arrive |
+| `HuggingFaceWriter` | Reads back a `ParquetWriter` output into a HuggingFace `datasets.Dataset`, optionally pushing it to the Hub. Requires the optional `hf` extra (`pip install astro-pest[hf]`). |
 
 ### Configuration reference
 

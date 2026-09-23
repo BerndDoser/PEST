@@ -29,6 +29,29 @@ def test_illustris_skirt_pipeline_1(tmp_path):
     assert len(image[0][0]) == 32
 
 
+def test_illustris_skirt_pipeline_hugging_face_writer(tmp_path):
+    output_path = tmp_path / "illustris_skirt.parquet"
+
+    with open(Path(__file__).parent / "data" / "illustris_skirt_pipeline_1.yaml") as fh:
+        config = yaml.safe_load(fh)
+    config["load"][0]["init_args"]["output_path"] = str(output_path)
+    config["load"].append(
+        {
+            "class_path": "pest.HuggingFaceWriter",
+            "init_args": {"parquet_path": str(output_path)},
+        }
+    )
+
+    Pipeline(config).run()
+
+    from datasets import load_dataset
+
+    dataset = load_dataset("parquet", data_files=str(output_path), split="train")
+    assert len(dataset) == 1
+    assert set(dataset.column_names) == {"image", "simulation", "snapshot", "subhalo_id"}
+    assert dataset[0]["simulation"] == "TNG50"
+
+
 def test_illustris_skirt_pipeline_2(tmp_path):
     output_path = tmp_path / "illustris_skirt.parquet"
 
