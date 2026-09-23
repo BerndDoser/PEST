@@ -3,6 +3,7 @@
 import argparse
 import os
 import re
+import tarfile
 from pathlib import Path
 
 import requests
@@ -36,12 +37,24 @@ def get_illustris_api_key() -> str:
     )
 
 
+def get_simulation_name(url: str) -> str:
+    """Extract the simulation name (e.g. 'TNG50-1') from a TNG/Illustris API URL."""
+    match = re.search(r"/api/([^/]+)/", url)
+    if not match:
+        raise ValueError(f"Could not determine simulation name from URL: {url}")
+    return match.group(1)
+
+
 def download_file(url: str, output_path: Path, api_key: str, chunk_size: int = 1 << 20) -> Path:
     """Download a single file, honoring the server's suggested filename.
 
+    The file is placed in a subdirectory of output_path named after its
+    simulation (e.g. 'TNG50-1'), which is created if needed.
+
     Equivalent to `wget -nc --content-disposition`: the download is skipped if
-    a file with the resolved filename already exists in output_path.
+    a file with the resolved filename already exists in the simulation directory.
     """
+    output_path = Path(output_path) / get_simulation_name(url)
     output_path.mkdir(parents=True, exist_ok=True)
 
     with requests.get(url, headers={"api-key": api_key}, stream=True, timeout=60) as response:
@@ -70,8 +83,21 @@ def download_file(url: str, output_path: Path, api_key: str, chunk_size: int = 1
     return destination
 
 
+def extract_tarball(tar_path: Path) -> Path:
+    """Extract a tarball into its containing directory and return that directory."""
+    destination = tar_path.parent
+    print(f"Extracting {tar_path.name} ...")
+    with tarfile.open(tar_path) as tar:
+        tar.extractall(destination, filter="data")
+    return destination
+
+
 def download_files(urls: list[str], output_path: str | Path, api_key: str | None = None) -> list[Path]:
-    """Download a list of URLs into output_path, skipping files that already exist."""
+    """Download a list of URLs into per-simulation subdirectories of output_path.
+
+    Each file is placed in output_path/<simulation> (e.g. output_path/TNG50-1),
+    skipping files that already exist.
+    """
     api_key = api_key or get_illustris_api_key()
     output_path = Path(output_path)
     return [download_file(url, output_path, api_key) for url in urls]
@@ -96,7 +122,9 @@ def main() -> None:
     else:
         urls = SKIRT_URLS
 
-    download_files(urls, args.path)
+    destinations = download_files(urls, args.path)
+    for destination in destinations:
+        extract_tarball(destination)
 
 
 if __name__ == "__main__":

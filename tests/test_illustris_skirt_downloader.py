@@ -1,7 +1,9 @@
+import tarfile
+
 import pytest
 
 from pest import download_files
-from pest.illustris_skirt_downloader import download_file
+from pest.illustris_skirt_downloader import download_file, extract_tarball, get_simulation_name
 
 
 class FakeResponse:
@@ -37,7 +39,7 @@ def test_download_file_uses_content_disposition_filename(tmp_path, monkeypatch):
         api_key="secret",
     )
 
-    assert destination == tmp_path / "skirt_images_sdss.99.tar"
+    assert destination == tmp_path / "TNG100-1" / "skirt_images_sdss.99.tar"
     assert destination.read_bytes() == b"tar-bytes"
 
 
@@ -57,7 +59,8 @@ def test_download_file_falls_back_to_url_basename(tmp_path, monkeypatch):
 
 
 def test_download_file_skips_existing_file(tmp_path, monkeypatch):
-    existing = tmp_path / "skirt_images_sdss.99.tar"
+    existing = tmp_path / "TNG100-1" / "skirt_images_sdss.99.tar"
+    existing.parent.mkdir(parents=True)
     existing.write_bytes(b"already-here")
 
     def fake_get(url, headers, stream, timeout):
@@ -89,7 +92,38 @@ def test_download_files_downloads_each_url(tmp_path, monkeypatch):
 
     assert [d.name for d in destinations] == ["skirt_images_sdss.95.tar", "skirt_images_sdss.99.tar"]
     for destination in destinations:
+        assert destination.parent == tmp_path / "TNG50-1"
         assert destination.exists()
+
+
+def test_get_simulation_name():
+    assert (
+        get_simulation_name("http://www.tng-project.org/api/TNG50-1/files/skirt_images_sdss.95.tar") == "TNG50-1"
+    )
+    assert (
+        get_simulation_name("http://www.tng-project.org/api/Illustris-1/files/skirt_images_sdss.131.tar")
+        == "Illustris-1"
+    )
+
+
+def test_get_simulation_name_invalid_url():
+    with pytest.raises(ValueError):
+        get_simulation_name("http://www.tng-project.org/not-an-api-url")
+
+
+def test_extract_tarball(tmp_path):
+    member_path = tmp_path / "member.txt"
+    member_path.write_text("hello")
+
+    tar_path = tmp_path / "archive.tar"
+    with tarfile.open(tar_path, "w") as tar:
+        tar.add(member_path, arcname="member.txt")
+    member_path.unlink()
+
+    destination = extract_tarball(tar_path)
+
+    assert destination == tmp_path
+    assert (tmp_path / "member.txt").read_text() == "hello"
 
 
 def test_get_illustris_api_key_from_env(monkeypatch):
