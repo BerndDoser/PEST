@@ -9,6 +9,7 @@ extract:
       - simulation
       - snapshot
       - subhalo_id
+      - [sersic_n, r]
 
 load:
   - class_path: pest.ParquetWriter

@@ -12,11 +12,11 @@ class IllustrisSkirtDataset:
 
     Args:
         path (str): Path to the directory containing FITS files.
-        columns (list[str | tuple[str, str]] | None): List of columns to extract
-            from the FITS files. Besides the plain string columns "image",
-            "simulation", "snapshot" and "subhalo_id", a `(field, band)` tuple
-            extracts `field` from the morphology catalog of the given filter
-            `band`.
+        columns (list[str | tuple[str, str] | list[str]] | None): List of columns
+            to extract from the FITS files. Besides the plain string columns
+            "image", "simulation", "snapshot" and "subhalo_id", a `(field, band)`
+            tuple (or two-element list, e.g. as parsed from YAML) extracts
+            `field` from the morphology catalog of the given filter `band`.
 
     A `(field, band)` column is read from the morphology catalog
     `morphs_{band}.hdf5` located in the snapshot directory of the FITS file,
@@ -60,7 +60,7 @@ class IllustrisSkirtDataset:
         if self.columns:
             splits = fits_file.parts
             subhalo_id = None
-            if "subhalo_id" in self.columns or any(isinstance(col, tuple) for col in self.columns):
+            if "subhalo_id" in self.columns or any(isinstance(col, list | tuple) for col in self.columns):
                 subhalo_id = np.int32(splits[-1][: -len(".fits")].split("_")[1])
             for col in self.columns:
                 if col == "simulation":
@@ -69,8 +69,8 @@ class IllustrisSkirtDataset:
                     data["snapshot"] = np.int32(splits[-3].split("_")[1])
                 elif col == "subhalo_id":
                     data["subhalo_id"] = subhalo_id
-                elif isinstance(col, tuple):
+                elif isinstance(col, list | tuple):
                     field, band = col
-                    data[col] = self._hdf5_field(fits_file, subhalo_id, field, band)
+                    data[tuple(col)] = self._hdf5_field(fits_file, subhalo_id, field, band)
 
         return data

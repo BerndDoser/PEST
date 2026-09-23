@@ -21,10 +21,15 @@ def _column_array(values: list) -> pa.Array:
     return pa.array(values)
 
 
+def _column_name(column) -> str:
+    """Flatten a (possibly nested) record key into a Parquet column name."""
+    return column if isinstance(column, str) else "_".join(column)
+
+
 def _records_to_table(records: list[dict]) -> pa.Table:
     columns = records[0].keys()
     arrays = [_column_array([record[column] for record in records]) for column in columns]
-    return pa.Table.from_arrays(arrays, names=list(columns))
+    return pa.Table.from_arrays(arrays, names=[_column_name(column) for column in columns])
 
 
 class ParquetWriter:

@@ -35,4 +35,4 @@ transform:
 load:
   - class_path: pest.ParquetWriter
     init_args:
-      output_path: PLACEHOLDER_OUTPUT_PATH
+      output_path: output.parquet
