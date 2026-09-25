@@ -97,9 +97,7 @@ def test_download_files_downloads_each_url(tmp_path, monkeypatch):
 
 
 def test_get_simulation_name():
-    assert (
-        get_simulation_name("http://www.tng-project.org/api/TNG50-1/files/skirt_images_sdss.95.tar") == "TNG50-1"
-    )
+    assert get_simulation_name("http://www.tng-project.org/api/TNG50-1/files/skirt_images_sdss.95.tar") == "TNG50-1"
     assert (
         get_simulation_name("http://www.tng-project.org/api/Illustris-1/files/skirt_images_sdss.131.tar")
         == "Illustris-1"
