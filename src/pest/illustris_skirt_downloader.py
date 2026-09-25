@@ -84,11 +84,12 @@ def download_file(url: str, output_path: Path, api_key: str, chunk_size: int = 1
 
 
 def extract_tarball(tar_path: Path) -> Path:
-    """Extract a tarball into its containing directory and return that directory."""
+    """Extract a tarball into its containing directory, delete it, and return that directory."""
     destination = tar_path.parent
     print(f"Extracting {tar_path.name} ...")
     with tarfile.open(tar_path) as tar:
         tar.extractall(destination, filter="data")
+    tar_path.unlink()
     return destination
 
 

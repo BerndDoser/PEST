@@ -124,6 +124,7 @@ def test_extract_tarball(tmp_path):
 
     assert destination == tmp_path
     assert (tmp_path / "member.txt").read_text() == "hello"
+    assert not tar_path.exists()
 
 
 def test_get_illustris_api_key_from_env(monkeypatch):
