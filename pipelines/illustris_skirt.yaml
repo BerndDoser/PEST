@@ -1,11 +1,11 @@
-num_workers: 32
+num_workers: 16
 shuffle: True
 seed: 42
 
 extract:
   class_path: pest.IllustrisSkirtDataset
   init_args:
-    path: data/SKIRT_synthetic_images/fits
+    path: data/illustris_skirt
     columns:
       - image
       - simulation
