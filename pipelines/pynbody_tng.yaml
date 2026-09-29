@@ -1,0 +1,24 @@
+num_workers: 16
+shuffle: True
+seed: 42
+
+extract:
+  class_path: pest.PynbodyDataset
+  init_args:
+    snapshot_path: /urz/gpuscratch/its/data/Illustris/TNG50-1/snapshot_099/snap_099
+    component: stars
+    mass_type: stellar
+    min_mass: 5.0e+10 # [Msun]
+    max_mass: 5.2e+10 # [Msun]
+    columns:
+      - subhalo_id
+      - snapshot
+      - pos
+      - vel
+      - mass
+      - SubhaloSFR
+
+load:
+  - class_path: pest.ParquetWriter
+    init_args:
+      output_path: output/pynbody_tng.parquet

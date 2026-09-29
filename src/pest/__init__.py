@@ -19,6 +19,7 @@ from .orientation import estimate_geometry_weighted, visualize_results
 from .parquet_writer import ParquetWriter
 from .pipeline import Pipeline
 from .point_cloud_generator import PointCloudGenerator
+from .pynbody_dataset import PynbodyDataset
 from .reflectional_invariance import ReflectionalInvariance
 from .resize_image import ResizeImage
 
@@ -41,6 +42,7 @@ __all__ = [
     "ParquetWriter",
     "Pipeline",
     "PointCloudGenerator",
+    "PynbodyDataset",
     "ReflectionalInvariance",
     "ResizeImage",
     "download_files",
