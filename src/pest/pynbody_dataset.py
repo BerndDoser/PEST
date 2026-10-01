@@ -6,6 +6,8 @@ import pynbody
 
 COMPONENTS = {"stars": "st", "gas": "g", "dm": "dm"}
 MASS_TYPES = {"stellar", "total"}
+# pynbody tries the generic Arepo catalogue first, which reads the wrong multi-file header for TNG.
+TNG_CATALOGUE = ["TNGSubfindHDFCatalogue"]
 DEFAULT_COLUMNS = ["subhalo_id", "pos", "vel", "mass"]
 
 
@@ -62,9 +64,9 @@ class PynbodyDataset:
         self.snapshot = pynbody.load(snapshot_path)
         self.snapshot.physical_units()
         if halos_path is None:
-            self.halos = self.snapshot.halos(subhalos=True)
+            self.halos = self.snapshot.halos(subhalos=True, priority=TNG_CATALOGUE)
         else:
-            self.halos = self.snapshot.halos(filename=halos_path, subhalos=True)
+            self.halos = self.snapshot.halos(filename=halos_path, subhalos=True, priority=TNG_CATALOGUE)
         self.halos.physical_units()
 
         # Only the catalogue arrays are read here, no particle data.
