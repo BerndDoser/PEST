@@ -17,6 +17,25 @@ def _in_units(array, units) -> np.ndarray:
     return np.asarray(array)
 
 
+def _find_catalogue(snapshot_path: str) -> str | None:
+    """Locate an IllustrisTNG-style `groups_NNN/fof_subhalo_tab_NNN` catalogue for a snapshot.
+
+    Handles snapshot paths like `.../snapdir_099/snap_099`, `.../snapdir_099/snap_099.0.hdf5`
+    and `.../snap_099.hdf5`, which pynbody cannot map to the catalogue on its own.
+    Returns the catalogue path without the `.N.hdf5` suffix, or `None` if not found.
+    """
+    path = Path(snapshot_path)
+    match = re.search(r"_(\d+)(?:\.\d+)?(?:\.hdf5)?$", path.name)
+    if match is None:
+        return None
+    num = match.group(1)
+    for root in (path.parent.parent, path.parent):
+        stem = root / f"groups_{num}" / f"fof_subhalo_tab_{num}"
+        if stem.with_name(stem.name + ".hdf5").exists() or stem.with_name(stem.name + ".0.hdf5").exists():
+            return str(stem)
+    return None
+
+
 class PynbodyDataset:
     """Dataset of subhalo particle data read with pynbody (e.g. IllustrisTNG snapshots).
 
@@ -26,8 +45,9 @@ class PynbodyDataset:
 
     Args:
         snapshot_path (str): Path to the snapshot, e.g. `.../snapshot_099/snap_099`.
-        halos_path (str | None): Path to the halo catalogue. If `None`, pynbody
-            locates it next to the snapshot.
+        halos_path (str | None): Path to the halo catalogue, e.g.
+            `.../groups_099/fof_subhalo_tab_099`. If `None`, a sibling `groups_NNN`
+            directory is searched, falling back to pynbody's own lookup.
         component (str): Particle family to return: "stars", "gas" or "dm".
         mass_type (str): Mass used for the selection: "stellar" (`SubhaloMassType[:, 4]`)
             or "total" (`SubhaloMass`).
@@ -61,6 +81,8 @@ class PynbodyDataset:
 
         self.snapshot = pynbody.load(snapshot_path)
         self.snapshot.physical_units()
+        if halos_path is None:
+            halos_path = _find_catalogue(snapshot_path)
         if halos_path is None:
             self.halos = self.snapshot.halos(subhalos=True)
         else:
