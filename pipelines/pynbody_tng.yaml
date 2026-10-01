@@ -5,7 +5,7 @@ seed: 42
 extract:
   class_path: pest.PynbodyDataset
   init_args:
-    snapshot_path: /urz/gpuscratch/its/data/Illustris/TNG50-1/snapshot_099/snap_099
+    snapshot_path: /urz/gpuscratch/its/data/Illustris/TNG50-1/snapdir_099/snap_099
     component: stars
     mass_type: stellar
     min_mass: 5.0e+10 # [Msun]
