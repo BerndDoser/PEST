@@ -29,6 +29,15 @@ Built-in extractors:
 | Class | Input |
 |---|---|
 | `IllustrisSkirtDataset` | Directory of Illustris SKIRT |
+| `PynbodyDataset` | Simulation snapshot + subhalo catalogue read with [pynbody](https://pynbody.readthedocs.io/) (e.g. IllustrisTNG) |
+
+#### `PynbodyDataset` columns
+
+`PynbodyDataset` yields one record per subhalo of the halo catalogue and only reads catalogue
+data. The `columns` argument accepts `subhalo_id`, `snapshot` and any catalogue property
+(e.g. `SubhaloSFR`). Subhalo selection (mass range, `SubhaloFlag`, ...) is done with
+filters in the transform stage, and particle arrays are added by a `LoadParticles` transform
+step (see below), so they are only read for selected subhalos.
 
 #### `IllustrisSkirtDataset` columns
 
@@ -59,8 +68,35 @@ the Parquet column name `{field}_{band}` (e.g. `sersic_n_r`).
 Transformations are applied sequentially to the dataset.
 Classes that set `is_filter = True` are used as filters (rows are dropped); others map the data in-place.
 
+The `transform` list accepts two kinds of entries:
+
+- **Column-scoped** groups `{column: image, transformations: [...]}`: each transformation
+  receives and returns the value of that column.
+- **Record-level** steps `{class_path: ..., init_args: ...}`: a filter receives the whole
+  record and returns whether to keep it, any other step receives the record and returns the
+  updated record (e.g. to add new columns).
+
+**Filtering before extraction.** If the dataset provides a `table()` of cheap per-record
+columns (as `PynbodyDataset` does with the halo catalogue), the *leading* record-level
+filters that implement a vectorized `mask(table)` (e.g. `FilterRange`) are applied to the
+whole table before any record is extracted. Filters later in the chain run per record.
+Steps that implement `bind(dataset)` get access to the worker's dataset, which lets
+loader steps like `LoadParticles` read large arrays only for the records that survived.
+
+```yaml
+transform:
+  - class_path: pest.FilterRange # stellar mass in [5e10, 5.2e10] Msun
+    init_args: {column: SubhaloMassType, index: 4, min: 5.0e+10, max: 5.2e+10, units: Msol}
+  - class_path: pest.FilterRange # SubhaloFlag == 1
+    init_args: {column: SubhaloFlag, min: 1}
+  - class_path: pest.LoadParticles
+    init_args: {component: stars, fields: [pos, vel, mass]}
+```
+
 | Class | Purpose |
 |---|---|
+| `FilterRange` | Keep records whose `column` (optionally `[..., index]`, converted to `units`) lies within `[min, max]` |
+| `LoadParticles` | Add particle arrays (`pos`, `vel` relative to the subhalo center, `mass`, ...) of a `component` from a `PynbodyDataset` |
 | `CreateNormalizedRGBColors` | Combine multi-channel FITS data into an RGB image |
 | `FilterUnhealthyData` | Drop corrupt or blank images |
 | `AlignImageHorizontally` | Rotate galaxy to a canonical orientation |

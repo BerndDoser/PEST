@@ -1,9 +1,10 @@
 import numpy as np
+import pandas as pd
 import pynbody
 import pytest
 
 import pest.pynbody_dataset
-from pest import PynbodyDataset
+from pest import FilterRange, LoadParticles, Pipeline, PynbodyDataset
 
 # 5 subhalos: stellar masses [Msun] and flags
 STELLAR_MASS = np.array([1e8, 5e9, 2e10, 3e10, 1e12])
@@ -65,58 +66,100 @@ def fake_pynbody(monkeypatch):
     return snapshot
 
 
-def test_selection_uses_metadata_only(fake_pynbody):
-    dataset = PynbodyDataset("TNG50-1/snapshot_099/snap_099", min_mass=1e9, max_mass=1e11)
+MASS_FILTER = {
+    "class_path": "pest.FilterRange",
+    "init_args": {"column": "SubhaloMassType", "index": 4, "min": 1e9, "max": 1e11, "units": "Msol"},
+}
+FLAG_FILTER = {"class_path": "pest.FilterRange", "init_args": {"column": "SubhaloFlag", "min": 1}}
+LOAD_PARTICLES = {"class_path": "pest.LoadParticles", "init_args": {"fields": ["pos", "vel", "mass"]}}
 
-    assert list(dataset.subhalo_ids) == [1, 3]
-    assert len(dataset) == 2
+
+def _run_pipeline(tmp_path, transform, columns=("subhalo_id", "snapshot", "SubhaloSFR")):
+    output_path = tmp_path / "out.parquet"
+    config = {
+        "num_workers": 1,
+        "shuffle": False,
+        "extract": {
+            "class_path": "pest.PynbodyDataset",
+            "init_args": {"snapshot_path": "TNG50-1/snapshot_099/snap_099", "columns": list(columns)},
+        },
+        "transform": transform,
+        "load": [{"class_path": "pest.ParquetWriter", "init_args": {"output_path": str(output_path)}}],
+    }
+    Pipeline(config).run()
+    return pd.read_parquet(output_path)
+
+
+def test_dataset_reads_catalogue_only(fake_pynbody):
+    dataset = PynbodyDataset("TNG50-1/snapshot_099/snap_099", columns=["subhalo_id", "snapshot", "SubhaloSFR"])
+
+    assert len(dataset) == 5
+    item = dataset[3]
+    assert item == {"subhalo_id": 3, "snapshot": 99, "SubhaloSFR": 3.0}
     assert fake_pynbody.fake_halos.accessed == []
 
 
-def test_total_mass_selection(fake_pynbody):
-    dataset = PynbodyDataset("snap_099", mass_type="total", min_mass=1e11)
+def test_particle_columns_rejected(fake_pynbody):
+    with pytest.raises(ValueError, match="LoadParticles"):
+        PynbodyDataset("snap_099", columns=["subhalo_id", "pos"])
 
-    assert list(dataset.subhalo_ids) == [3, 4]
 
+def test_particles(fake_pynbody):
+    dataset = PynbodyDataset("snap_099")
 
-def test_getitem(fake_pynbody):
-    dataset = PynbodyDataset(
-        "TNG50-1/snapshot_099/snap_099",
-        min_mass=1e9,
-        max_mass=1e11,
-        columns=["subhalo_id", "snapshot", "pos", "vel", "mass", "SubhaloSFR"],
-    )
-
-    item = dataset[1]
-    assert item["subhalo_id"] == 3
-    assert item["snapshot"] == 99
-    assert item["pos"].shape == (4, 3)
-    assert item["pos"].dtype == np.float32
-    np.testing.assert_allclose(item["pos"], 1.0)
-    np.testing.assert_allclose(item["vel"], 2.0)
-    np.testing.assert_allclose(item["mass"], 1.0)
-    assert item["SubhaloSFR"] == 3.0
+    particles = dataset.particles(3, "stars", ["pos", "vel", "mass"])
+    assert particles["pos"].shape == (4, 3)
+    assert particles["pos"].dtype == np.float32
+    np.testing.assert_allclose(particles["pos"], 1.0)
+    np.testing.assert_allclose(particles["vel"], 2.0)
+    np.testing.assert_allclose(particles["mass"], 1.0)
     assert fake_pynbody.fake_halos.accessed == [3]
 
 
-def test_catalog_columns_do_not_read_particles(fake_pynbody):
-    dataset = PynbodyDataset("snap_099", columns=["subhalo_id", "SubhaloSFR"])
-
-    for item in dataset:
-        assert set(item) == {"subhalo_id", "SubhaloSFR"}
-    assert fake_pynbody.fake_halos.accessed == []
-
-
 def test_invalid_component(fake_pynbody):
+    dataset = PynbodyDataset("snap_099")
     with pytest.raises(ValueError):
-        PynbodyDataset("snap_099", component="bh")
+        dataset.particles(0, "bh", ["pos"])
 
 
-def test_mass_selection_converts_units(fake_pynbody, monkeypatch):
+def test_mass_filter_on_table(fake_pynbody):
+    dataset = PynbodyDataset("snap_099")
+
+    stellar = FilterRange("SubhaloMassType", index=4, min=1e9, max=1e11).mask(dataset.table())
+    total = FilterRange("SubhaloMass", min=1e11).mask(dataset.table())
+    assert list(np.flatnonzero(stellar)) == [1, 2, 3]
+    assert list(np.flatnonzero(total)) == [2, 3, 4]
+
+
+def test_mass_filter_converts_units(fake_pynbody, monkeypatch):
     properties = fake_pynbody.fake_halos.get_properties_all_halos()
     properties["SubhaloMassType"] = pynbody.array.SimArray(properties["SubhaloMassType"] / 1e10, "1e10 Msol")
     monkeypatch.setattr(fake_pynbody.fake_halos, "get_properties_all_halos", lambda: properties)
+    dataset = PynbodyDataset("snap_099")
 
-    dataset = PynbodyDataset("snap_099", min_mass=1e9, max_mass=1e11)
+    mask = FilterRange("SubhaloMassType", index=4, min=1e9, max=1e11, units="Msol").mask(dataset.table())
+    assert list(np.flatnonzero(mask)) == [1, 2, 3]
 
-    assert list(dataset.subhalo_ids) == [1, 3]
+
+def test_pipeline_loads_particles_only_for_selected(fake_pynbody, tmp_path):
+    df = _run_pipeline(tmp_path, [MASS_FILTER, FLAG_FILTER, LOAD_PARTICLES])
+
+    assert list(df["subhalo_id"]) == [1, 3]
+    assert list(df["SubhaloSFR"]) == [1.0, 3.0]
+    assert set(df.columns) == {"subhalo_id", "snapshot", "SubhaloSFR", "pos", "vel", "mass"}
+    np.testing.assert_allclose(np.stack(df.iloc[1]["pos"]), np.ones((4, 3)))
+    assert fake_pynbody.fake_halos.accessed == [1, 3]
+
+
+def test_pipeline_filter_after_loading(fake_pynbody, tmp_path):
+    late_filter = {"class_path": "pest.FilterRange", "init_args": {"column": "SubhaloSFR", "max": 2.0}}
+    df = _run_pipeline(tmp_path, [MASS_FILTER, LOAD_PARTICLES, late_filter])
+
+    # SubhaloFlag is not applied here, so subhalo 2 survives the mass filter.
+    assert list(df["subhalo_id"]) == [1, 2]
+    assert fake_pynbody.fake_halos.accessed == [1, 2, 3]
+
+
+def test_load_particles_requires_binding():
+    with pytest.raises(RuntimeError):
+        LoadParticles(fields=["pos"])({"subhalo_id": 0})
