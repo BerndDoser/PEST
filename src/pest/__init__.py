@@ -23,6 +23,7 @@ from .pipeline import Pipeline
 from .point_cloud_generator import PointCloudGenerator
 from .pynbody_dataset import PynbodyDataset
 from .reflectional_invariance import ReflectionalInvariance
+from .render_stars import RenderStars
 from .resize_image import ResizeImage
 
 __version__ = importlib.metadata.version("astro-pest")
@@ -48,6 +49,7 @@ __all__ = [
     "PointCloudGenerator",
     "PynbodyDataset",
     "ReflectionalInvariance",
+    "RenderStars",
     "ResizeImage",
     "download_files",
     "estimate_geometry_weighted",

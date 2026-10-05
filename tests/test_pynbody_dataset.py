@@ -4,7 +4,7 @@ import pynbody
 import pytest
 
 import pest.pynbody_dataset
-from pest import FilterRange, LoadParticles, Pipeline, PynbodyDataset
+from pest import FilterRange, LoadParticles, Pipeline, PynbodyDataset, RenderStars
 
 # 5 subhalos: stellar masses [Msun] and flags
 STELLAR_MASS = np.array([1e8, 5e9, 2e10, 3e10, 1e12])
@@ -172,3 +172,66 @@ def test_pipeline_filter_after_loading(fake_pynbody, tmp_path):
 def test_load_particles_requires_binding():
     with pytest.raises(RuntimeError):
         LoadParticles(fields=["pos"])({"subhalo_id": 0})
+
+
+class FakeCentering:
+    def __init__(self, calls, halo, kwargs):
+        self.calls = calls
+        calls.append(("center", halo, kwargs))
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.calls.append(("revert",))
+
+
+@pytest.fixture
+def fake_render(monkeypatch):
+    calls = []
+
+    def render(halo, **kwargs):
+        calls.append(("render", halo, kwargs))
+        image = np.zeros((4, 4, 3))
+        image[0] = 1.0  # first row = lowest y in pynbody
+        return image
+
+    monkeypatch.setattr(pynbody.analysis, "center", lambda halo, **kw: FakeCentering(calls, halo, kw))
+    monkeypatch.setattr(pynbody.plot.stars, "render", render)
+    return calls
+
+
+def test_render_stars(fake_pynbody, fake_render):
+    step = RenderStars(width="30 kpc", resolution=4, center_mode="ssc", render_args={"dynamic_range": 3.0})
+    step.bind(PynbodyDataset("snap_099"))
+
+    record = step({"subhalo_id": np.int32(3)})
+
+    assert record["image"].shape == (4, 4, 3)
+    assert record["image"].dtype == np.float32
+    np.testing.assert_allclose(record["image"][-1], 1.0)
+    assert [call[0] for call in fake_render] == ["center", "render", "revert"]
+    _, centered_halo, center_kwargs = fake_render[0]
+    _, rendered_halo, render_kwargs = fake_render[1]
+    assert centered_halo is rendered_halo
+    assert center_kwargs == {"mode": "ssc", "move_all": False}
+    assert render_kwargs == {
+        "width": "30 kpc",
+        "resolution": 4,
+        "noplot": True,
+        "return_image": True,
+        "dynamic_range": 3.0,
+    }
+
+
+def test_pipeline_renders_stars(fake_pynbody, fake_render, tmp_path):
+    render = {"class_path": "pest.RenderStars", "init_args": {"resolution": 4}}
+    df = _run_pipeline(tmp_path, [MASS_FILTER, FLAG_FILTER, render])
+
+    assert list(df["subhalo_id"]) == [1, 3]
+    assert np.stack([np.stack(row) for row in df.iloc[0]["image"]]).shape == (4, 4, 3)
+
+
+def test_render_stars_requires_binding():
+    with pytest.raises(RuntimeError):
+        RenderStars()({"subhalo_id": 0})
