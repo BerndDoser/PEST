@@ -79,6 +79,10 @@ class PynbodyDataset:
                 data[col] = np.asarray(self.properties[col][index])
         return data
 
+    def halo(self, subhalo_id: int | np.integer):
+        """The pynbody halo object of one subhalo, giving access to all its particles."""
+        return self.halos[int(subhalo_id)]
+
     def particles(self, subhalo_id: int, component: str, fields: list[str]) -> dict[str, np.ndarray]:
         """Read particle `fields` of one subhalo.
 
@@ -87,7 +91,7 @@ class PynbodyDataset:
         """
         if component not in COMPONENTS:
             raise ValueError(f"component must be one of {list(COMPONENTS)}, got {component!r}")
-        particles = getattr(self.halos[int(subhalo_id)], COMPONENTS[component])
+        particles = getattr(self.halo(subhalo_id), COMPONENTS[component])
         return {field: self._particle_field(particles, field, subhalo_id) for field in fields}
 
     def _particle_field(self, particles, field: str, subhalo_id: int) -> np.ndarray:

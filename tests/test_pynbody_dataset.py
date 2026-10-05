@@ -116,6 +116,15 @@ def test_particles(fake_pynbody):
     assert fake_pynbody.fake_halos.accessed == [3]
 
 
+def test_halo(fake_pynbody):
+    dataset = PynbodyDataset("snap_099")
+
+    halo = dataset.halo(np.int32(3))
+    assert isinstance(halo, FakeHalo)
+    assert len(halo.st["mass"]) == 4
+    assert fake_pynbody.fake_halos.accessed == [3]
+
+
 def test_invalid_component(fake_pynbody):
     dataset = PynbodyDataset("snap_099")
     with pytest.raises(ValueError):
