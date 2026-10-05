@@ -80,8 +80,15 @@ class PynbodyDataset:
         return data
 
     def halo(self, subhalo_id: int | np.integer):
-        """The pynbody halo object of one subhalo, giving access to all its particles."""
-        return self.halos[int(subhalo_id)]
+        """A standalone pynbody snapshot holding only the particles of one subhalo.
+
+        The particles are read from disk with partial loading. Indexing the
+        catalogue instead gives a view on the full snapshot, where loading any
+        array reads it for all particles of the simulation.
+        """
+        halo = self.halos.load_copy(int(subhalo_id))
+        halo.physical_units()
+        return halo
 
     def particles(self, subhalo_id: int, component: str, fields: list[str]) -> dict[str, np.ndarray]:
         """Read particle `fields` of one subhalo.

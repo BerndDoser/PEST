@@ -6,10 +6,9 @@ class RenderStars:
     """Transform step that adds a 3-color stellar image of a subhalo to the record.
 
     The subhalo is centered with `pynbody.analysis.center` and rendered with
-    `pynbody.plot.stars.render`. Only the subhalo is moved and the centering
-    is reverted afterwards, so the snapshot is unchanged for other steps and
-    records. The pipeline binds the worker's dataset to this step, which must
-    provide `halo(subhalo_id)` (e.g. `PynbodyDataset`).
+    `pynbody.plot.stars.render`. The pipeline binds the worker's dataset to
+    this step, which must provide `halo(subhalo_id)` returning a snapshot of
+    the subhalo particles only (e.g. `PynbodyDataset`).
 
     Args:
         width (float | str): Image width, as a float in the snapshot units
@@ -48,16 +47,17 @@ class RenderStars:
             raise RuntimeError("RenderStars must be bound to a dataset before use.")
         if "subhalo_id" not in record:
             raise KeyError("RenderStars requires the 'subhalo_id' column in the extracted records.")
+        # The halo is a standalone copy, so centering it does not affect the dataset.
         halo = self.dataset.halo(record["subhalo_id"])
-        with pynbody.analysis.center(halo, mode=self.center_mode, move_all=False):
-            image = pynbody.plot.stars.render(
-                halo,
-                width=self.width,
-                resolution=self.resolution,
-                noplot=True,
-                return_image=True,
-                **self.render_args,
-            )
+        pynbody.analysis.center(halo, mode=self.center_mode)
+        image = pynbody.plot.stars.render(
+            halo,
+            width=self.width,
+            resolution=self.resolution,
+            noplot=True,
+            return_image=True,
+            **self.render_args,
+        )
         # pynbody puts the lowest y in the first row; flip to the usual top-down image layout.
         record[self.column] = np.asarray(image[::-1], dtype=np.float32)
         return record

@@ -21,6 +21,9 @@ class FakeHalo:
         pos = np.full((n, 3), 10.0 * subhalo_id + 1.0)
         self.st = FakeParticles(pos=pos, vel=pos * 2, mass=np.ones(n))
 
+    def physical_units(self):
+        pass
+
 
 class FakeHalos:
     def __init__(self):
@@ -44,8 +47,11 @@ class FakeHalos:
         }
 
     def __getitem__(self, subhalo_id):
-        self.accessed.append(int(subhalo_id))
-        return FakeHalo(int(subhalo_id))
+        raise AssertionError("indexing the catalogue gives a view that loads arrays of the full snapshot")
+
+    def load_copy(self, subhalo_id):
+        self.accessed.append(subhalo_id)
+        return FakeHalo(subhalo_id)
 
 
 class FakeSnapshot:
@@ -174,18 +180,6 @@ def test_load_particles_requires_binding():
         LoadParticles(fields=["pos"])({"subhalo_id": 0})
 
 
-class FakeCentering:
-    def __init__(self, calls, halo, kwargs):
-        self.calls = calls
-        calls.append(("center", halo, kwargs))
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *exc):
-        self.calls.append(("revert",))
-
-
 @pytest.fixture
 def fake_render(monkeypatch):
     calls = []
@@ -196,7 +190,7 @@ def fake_render(monkeypatch):
         image[0] = 1.0  # first row = lowest y in pynbody
         return image
 
-    monkeypatch.setattr(pynbody.analysis, "center", lambda halo, **kw: FakeCentering(calls, halo, kw))
+    monkeypatch.setattr(pynbody.analysis, "center", lambda halo, **kw: calls.append(("center", halo, kw)))
     monkeypatch.setattr(pynbody.plot.stars, "render", render)
     return calls
 
@@ -210,11 +204,11 @@ def test_render_stars(fake_pynbody, fake_render):
     assert record["image"].shape == (4, 4, 3)
     assert record["image"].dtype == np.float32
     np.testing.assert_allclose(record["image"][-1], 1.0)
-    assert [call[0] for call in fake_render] == ["center", "render", "revert"]
+    assert [call[0] for call in fake_render] == ["center", "render"]
     _, centered_halo, center_kwargs = fake_render[0]
     _, rendered_halo, render_kwargs = fake_render[1]
     assert centered_halo is rendered_halo
-    assert center_kwargs == {"mode": "ssc", "move_all": False}
+    assert center_kwargs == {"mode": "ssc"}
     assert render_kwargs == {
         "width": "30 kpc",
         "resolution": 4,
