@@ -8,5 +8,4 @@ repos:
     rev: v0.16.10
     hooks:
       - id: ruff
-        args: [--fix, --select=I]
       - id: ruff-format
