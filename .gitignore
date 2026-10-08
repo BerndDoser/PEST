@@ -10,3 +10,4 @@ __pycache__/
 /devel/testdata/
 /output/
 build/
+testdata/
