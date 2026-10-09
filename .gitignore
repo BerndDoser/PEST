@@ -4,6 +4,7 @@ __pycache__/
 .venv/
 *.egg-info/
 *.hdf5
+!/tests/data/**/*.hdf5
 *.parquet
 /build/
 /data/

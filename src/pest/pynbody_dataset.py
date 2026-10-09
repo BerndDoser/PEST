@@ -151,8 +151,8 @@ class PynbodyDataset:
             index = self.halos.number_mapper.number_to_index(int(subhalo_id))
             center = in_units(self.properties[center_key], getattr(values, "units", None))[index]
             offset = np.asarray(values) - center
-            boxsize = self._boxsize(values)
-            if field == "pos" and boxsize is not None:
+            boxsize = self._boxsize(values) if field == "pos" else None
+            if boxsize is not None:
                 # Halos crossing the boundary of a periodic box.
                 offset = (offset + boxsize / 2) % boxsize - boxsize / 2
             return offset.astype(np.float32)
