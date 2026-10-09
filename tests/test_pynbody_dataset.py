@@ -25,12 +25,21 @@ class FakeHalo:
         pass
 
 
+class FakeNumberMapper:
+    def number_to_index(self, number):
+        return number
+
+
 class FakeHalos:
     def __init__(self):
         self.accessed = []
+        self.number_mapper = FakeNumberMapper()
 
     def physical_units(self):
         pass
+
+    def keys(self):
+        return list(range(len(STELLAR_MASS)))
 
     def get_properties_all_halos(self):
         n = len(STELLAR_MASS)
@@ -57,9 +66,13 @@ class FakeHalos:
 class FakeSnapshot:
     def __init__(self):
         self.fake_halos = FakeHalos()
+        self.properties = {}
 
     def physical_units(self):
         pass
+
+    def conversion_context(self):
+        return {}
 
     def halos(self, **kwargs):
         return self.fake_halos
@@ -119,6 +132,38 @@ def test_particles(fake_pynbody):
     np.testing.assert_allclose(particles["pos"], 1.0)
     np.testing.assert_allclose(particles["vel"], 2.0)
     np.testing.assert_allclose(particles["mass"], 1.0)
+    assert fake_pynbody.fake_halos.accessed == [3]
+
+
+def test_particles_wrap_periodic_box(fake_pynbody, monkeypatch):
+    fake_pynbody.properties["boxsize"] = pynbody.array.SimArray(100.0, "kpc")
+    halo = FakeHalo(3)
+    pos = pynbody.array.SimArray([[99.0, 1.0, 50.0], [2.0, 98.0, 50.0]], "kpc")
+    halo.st = FakeParticles(pos=pos, vel=np.zeros((2, 3)), mass=np.ones(2))
+    monkeypatch.setattr(fake_pynbody.fake_halos, "load_copy", lambda subhalo_id: halo)
+    properties = fake_pynbody.fake_halos.get_properties_all_halos()
+    properties["SubhaloPos"][3] = [1.0, 99.0, 50.0]
+    monkeypatch.setattr(fake_pynbody.fake_halos, "get_properties_all_halos", lambda: properties)
+    dataset = PynbodyDataset("snap_099")
+
+    particles = dataset.particles(3, "stars", ["pos"])
+    np.testing.assert_allclose(particles["pos"], [[-2.0, 2.0, 0.0], [1.0, -1.0, 0.0]])
+
+
+def test_halo_numbers_differ_from_index(fake_pynbody, monkeypatch):
+    # e.g. EAGLE group numbers start at 1
+    monkeypatch.setattr(fake_pynbody.fake_halos, "keys", lambda: list(range(1, len(STELLAR_MASS) + 1)))
+    monkeypatch.setattr(fake_pynbody.fake_halos.number_mapper, "number_to_index", lambda number: number - 1)
+    dataset = PynbodyDataset("snap_099", columns=["subhalo_id", "SubhaloSFR"])
+
+    assert len(dataset) == 5
+    assert dataset[0] == {"subhalo_id": 1, "SubhaloSFR": 0.0}
+    assert dataset[4] == {"subhalo_id": 5, "SubhaloSFR": 4.0}
+
+    # Particles of halo number 3 are centered on the catalogue entry at index 2.
+    particles = dataset.particles(3, "stars", ["pos", "vel"])
+    np.testing.assert_allclose(particles["pos"], 11.0)
+    np.testing.assert_allclose(particles["vel"], 22.0)
     assert fake_pynbody.fake_halos.accessed == [3]
 
 
