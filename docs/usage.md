@@ -29,15 +29,29 @@ Built-in extractors:
 | Class | Input |
 |---|---|
 | `IllustrisSkirtDataset` | Directory of Illustris SKIRT |
-| `PynbodyDataset` | Simulation snapshot + subhalo catalogue read with [pynbody](https://pynbody.readthedocs.io/) (e.g. IllustrisTNG) |
+| `PynbodyDataset` | Simulation snapshot + halo catalogue read with [pynbody](https://pynbody.readthedocs.io/) (e.g. IllustrisTNG, EAGLE, AHF) |
 
 #### `PynbodyDataset` columns
 
-`PynbodyDataset` yields one record per subhalo of the halo catalogue and only reads catalogue
-data. The `columns` argument accepts `subhalo_id`, `snapshot` and any catalogue property
-(e.g. `SubhaloSFR`). Subhalo selection (mass range, `SubhaloFlag`, ...) is done with
-filters in the transform stage, and particle arrays are added by a `LoadParticles` transform
-step (see below), so they are only read for selected subhalos.
+`PynbodyDataset` yields one record per halo of the catalogue and only reads catalogue
+data. It works with any snapshot and halo catalogue that pynbody can read: SUBFIND
+catalogues (IllustrisTNG, Arepo, Gadget) are loaded as flat subhalo catalogues, all others
+(e.g. EAGLE FoF groups, AHF, AdaptaHOP, VELOCIraptor) with pynbody's default halos. Pass
+`halos_args` (keyword arguments for pynbody's `halos()`) to choose the catalogue
+explicitly, e.g. `{priority: [AHFCatalogue]}`.
+
+The `columns` argument accepts `subhalo_id` (pynbody's halo number, e.g. starting at 1 for
+EAGLE), `snapshot` and any catalogue property (e.g. `SubhaloSFR`). Which properties exist
+depends on the catalogue format; EAGLE and AdaptaHOP catalogues provide none, so there is
+nothing to filter on before extraction. Subhalo selection (mass range, `SubhaloFlag`, ...)
+is done with filters in the transform stage, and particle arrays are added by a
+`LoadParticles` transform step (see below), so they are only read for selected subhalos.
+
+Particles are read with partial loading where the snapshot format supports it, otherwise
+(e.g. Gadget binary, Ramses) copied out of the full snapshot. Particle positions and
+velocities are relative to the catalogue center (`SubhaloPos`/`SubhaloVel` or
+`sub_pos`/`sub_vel`, wrapped at the periodic box boundary), or to the center computed by
+`pynbody.analysis.center` if the catalogue has none.
 
 #### `IllustrisSkirtDataset` columns
 
