@@ -49,6 +49,9 @@ class RenderStars:
             raise KeyError("RenderStars requires the 'subhalo_id' column in the extracted records.")
         # The halo is a standalone copy, so centering it does not affect the dataset.
         halo = self.dataset.halo(record["subhalo_id"])
+        # pynbody fails with an obscure KeyError for a missing star family, e.g. in dark matter only runs.
+        if len(halo.st) == 0:
+            raise ValueError(f"Subhalo {record['subhalo_id']} has no star particles to render.")
         pynbody.analysis.center(halo, mode=self.center_mode)
         image = pynbody.plot.stars.render(
             halo,

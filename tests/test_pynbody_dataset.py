@@ -226,6 +226,18 @@ def test_pipeline_renders_stars(fake_pynbody, fake_render, tmp_path):
     assert np.stack([np.stack(row) for row in df.iloc[0]["image"]]).shape == (4, 4, 3)
 
 
+def test_render_stars_without_stars(fake_pynbody, fake_render, monkeypatch):
+    halo = FakeHalo(0)
+    halo.st = FakeParticles()
+    monkeypatch.setattr(fake_pynbody.fake_halos, "load_copy", lambda subhalo_id: halo)
+    step = RenderStars()
+    step.bind(PynbodyDataset("snap_099"))
+
+    with pytest.raises(ValueError, match="no star particles"):
+        step({"subhalo_id": 0})
+    assert fake_render == []
+
+
 def test_render_stars_requires_binding():
     with pytest.raises(RuntimeError):
         RenderStars()({"subhalo_id": 0})
