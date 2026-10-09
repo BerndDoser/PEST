@@ -58,7 +58,7 @@ class PynbodyDataset:
         self.properties = self.halos.get_properties_all_halos()
         self.num_subhalos = len(next(iter(self.properties.values())))
 
-        match = re.search(r"(\d+)$", Path(snapshot_path).name)
+        match = re.search(r"(\d+)$", Path(snapshot_path).name.removesuffix(".hdf5"))
         self.snapshot_number = np.int32(match.group(1)) if match else None
 
     def __len__(self) -> int:
