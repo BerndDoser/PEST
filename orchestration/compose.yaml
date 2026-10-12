@@ -1,17 +1,18 @@
-# Local Airflow for the PEST pipelines: LocalExecutor with a Postgres metadata
-# database, all on one host. Adapted from the official Airflow 3.3.2
-# docker-compose.yaml, without Celery and Redis. See docs/airflow.md.
+# Local Airflow for the PEST pipelines on rootless Podman: LocalExecutor with a
+# Postgres metadata database, all on one host. Adapted from the official Airflow
+# 3.3.2 docker-compose.yaml, without Celery and Redis. See docs/airflow.md.
 #
 #   cp .env.example .env   # and fill it in
-#   docker compose up airflow-init
-#   docker compose up -d
+#   podman compose build
+#   podman compose run --rm airflow-init
+#   podman compose up -d
 ---
 x-airflow-common:
   &airflow-common
   build:
     context: ..
-    dockerfile: orchestration/Dockerfile
-  image: pest-airflow:3.3.2
+    dockerfile: orchestration/Containerfile
+  image: localhost/pest-airflow:3.3.2
   environment:
     &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
@@ -33,15 +34,17 @@ x-airflow-common:
     - ../pipelines:/opt/pest/pipelines:ro
     - ${PEST_HOST_DATA_DIR:-../data}:/opt/airflow/data
     - ${PEST_HOST_OUTPUT_DIR:-../output}:/opt/airflow/output
-  user: "${AIRFLOW_UID:-50000}:0"
+  # Run as the image's `airflow` user (50000:0) and map it to your own user, so
+  # that files written to the mounted directories belong to you.
+  user: "50000:0"
+  userns_mode: "keep-id:uid=50000"
   depends_on:
-    &airflow-common-depends-on
     postgres:
       condition: service_healthy
 
 services:
   postgres:
-    image: postgres:16
+    image: docker.io/library/postgres:16
     environment:
       POSTGRES_USER: airflow
       POSTGRES_PASSWORD: airflow
@@ -67,10 +70,6 @@ services:
       retries: 5
       start_period: 30s
     restart: always
-    depends_on:
-      <<: *airflow-common-depends-on
-      airflow-init:
-        condition: service_completed_successfully
 
   # With the LocalExecutor the tasks, and so the PEST pipelines, run in this
   # container: it is the only one that gets the API tokens, and it needs the
@@ -89,10 +88,6 @@ services:
       retries: 5
       start_period: 30s
     restart: always
-    depends_on:
-      <<: *airflow-common-depends-on
-      airflow-init:
-        condition: service_completed_successfully
 
   airflow-dag-processor:
     <<: *airflow-common
@@ -104,13 +99,11 @@ services:
       retries: 5
       start_period: 30s
     restart: always
-    depends_on:
-      <<: *airflow-common-depends-on
-      airflow-init:
-        condition: service_completed_successfully
 
-  # Migrates the database, creates the admin user and the `pest` pool, and makes
-  # the mounted directories writable for AIRFLOW_UID.
+  # Migrates the database and creates the admin user and the `pest` pool. Run it
+  # with `podman compose run --rm airflow-init` before the first `up`: the other
+  # services don't depend on it, because podman-compose would make them require
+  # this one-shot container. It also runs on every `up`, where it changes nothing.
   airflow-init:
     <<: *airflow-common
     entrypoint: /bin/bash
@@ -118,18 +111,6 @@ services:
       - -c
       - |
         set -euo pipefail
-        if [[ -z "${AIRFLOW_UID:-}" ]]; then
-          echo "WARNING: AIRFLOW_UID is not set in orchestration/.env; files will be owned by UID 50000."
-        fi
-        mkdir -p /opt/airflow/logs /opt/airflow/data /opt/airflow/output
-        chown -R "${AIRFLOW_UID:-50000}:0" /opt/airflow/logs
-        # Only take over directories that Docker just created (owned by root),
-        # never existing data directories, and don't recurse into them.
-        for dir in /opt/airflow/data /opt/airflow/output; do
-          if [[ "$$(stat -c %u "$$dir")" == 0 ]]; then
-            chown "${AIRFLOW_UID:-50000}:0" "$$dir"
-          fi
-        done
         /entrypoint airflow version
         _AIRFLOW_DB_MIGRATE=false _AIRFLOW_WWW_USER_CREATE=false \
           /entrypoint airflow pools set pest "${PEST_POOL_SLOTS:-1}" "PEST pipeline runs"
@@ -139,19 +120,6 @@ services:
       _AIRFLOW_WWW_USER_CREATE: 'true'
       _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME:-airflow}
       _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
-    user: "0:0"
-
-  airflow-cli:
-    <<: *airflow-common
-    profiles:
-      - debug
-    environment:
-      <<: *airflow-common-env
-      CONNECTION_CHECK_MAX_COUNT: "0"
-    command:
-      - bash
-      - -c
-      - airflow
 
 volumes:
   postgres-db-volume:

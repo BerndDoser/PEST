@@ -1,7 +1,7 @@
 # Orchestration with Airflow
 
 The `orchestration/` directory holds [Apache Airflow](https://airflow.apache.org/) DAGs that run
-PEST pipelines as ETL workflows, plus a Docker Compose setup that runs Airflow locally. Airflow
+PEST pipelines as ETL workflows, plus a Podman Compose setup that runs Airflow locally. Airflow
 adds parametrized runs, a separate output directory per run, retries for downloads, a check of
 every output, and an optional upload to the Hugging Face Hub, all visible in the Airflow UI.
 
@@ -80,12 +80,18 @@ Both DAGs take these params:
 Relative input paths (`data_dir`, `snapshot_path`, `halos_path`) are relative to the data
 directory.
 
-## Running Airflow with Docker Compose
+## Running Airflow with Podman
 
 The image is the official Airflow image with PEST installed in a separate virtual environment, so
 PEST's dependencies don't have to fit Airflow's. It uses the LocalExecutor: the tasks, and so the
 PEST pipelines, run inside the `airflow-scheduler` container, which therefore needs enough CPUs
 and memory for the pipelines.
+
+The setup is meant for rootless [Podman](https://podman.io/) with
+[podman-compose](https://github.com/containers/podman-compose), e.g. `apt install podman
+podman-compose` on Ubuntu 24.04. The Airflow containers map the image's `airflow` user to your own
+user, so the files they write to the mounted directories belong to you (their group is one of your
+sub-GIDs).
 
 1. Create the settings file and fill it in:
 
@@ -94,7 +100,6 @@ and memory for the pipelines.
    cp .env.example .env
    ```
 
-   - `AIRFLOW_UID`: your user id (`id -u`), so that output files belong to you.
    - `FERNET_KEY` and `AIRFLOW_JWT_SECRET`: generate them with the commands given in `.env.example`.
    - `PEST_HOST_DATA_DIR` and `PEST_HOST_OUTPUT_DIR`: host directories for the input data and the
      outputs (default: `data/` and `output/` in the repository).
@@ -104,10 +109,15 @@ and memory for the pipelines.
 2. Build the image, initialize Airflow and start it:
 
    ```bash
-   docker compose build
-   docker compose up airflow-init
-   docker compose up -d
+   podman compose build
+   podman compose run --rm airflow-init
+   podman compose up -d
    ```
+
+   podman-compose starts the containers without waiting for each other, so the database has to be
+   initialized with the separate `run` step before the first `up`. podman-compose 1.0.6 then reports
+   that the name of the Postgres container is already in use and starts the existing container
+   instead; this is harmless.
 
 3. Open the Airflow UI at <http://localhost:8080> and log in (default `airflow` / `airflow`, set in
    `.env`). Use *Trigger* on a DAG to edit its params and start a run.
@@ -115,14 +125,14 @@ and memory for the pipelines.
 Runs can also be triggered from the command line:
 
 ```bash
-docker compose exec airflow-scheduler airflow dags trigger pest_pynbody_tng \
+podman compose exec airflow-scheduler airflow dags trigger pest_pynbody_tng \
   --conf '{"snapshot_path": "TNG50-1/snapdir_099/snap_099", "num_workers": 16}'
 
-docker compose exec airflow-scheduler airflow dags trigger pest_illustris_skirt \
+podman compose exec airflow-scheduler airflow dags trigger pest_illustris_skirt \
   --conf '{"skirt_urls": [], "hf_repo_id": "my-org/illustris-skirt"}'
 ```
 
-Stop Airflow with `docker compose down`; add `-v` to also delete its database.
+Stop Airflow with `podman compose down`; add `-v` to also delete its database.
 
 ### What is mounted
 
@@ -133,7 +143,13 @@ Stop Airflow with `docker compose down`; add `-v` to also delete its database.
 | `PEST_HOST_DATA_DIR` | `/opt/airflow/data` | Input data and SKIRT downloads. |
 | `PEST_HOST_OUTPUT_DIR` | `/opt/airflow/output` | Run outputs. |
 
-Changes to the PEST code in `src/` need a rebuild: `docker compose build && docker compose up -d`.
+Changes to the PEST code in `src/` need a new image and new containers:
+
+```bash
+podman compose build
+podman compose down
+podman compose up -d
+```
 
 ### Settings
 
@@ -158,7 +174,7 @@ The tests run both DAGs end to end on the test data in `tests/data`, using
 the `airflow` group, these tests are skipped.
 
 The DAGs never import `pest` themselves. Tasks that need PEST run in the PEST environment, either
-as a `pest` command (`@task.bash`) or with `@task.external_python`. Outside Docker this environment
+as a `pest` command (`@task.bash`) or with `@task.external_python`. Outside the container this environment
 is the current Python interpreter. These environment variables configure the DAGs:
 
 | Variable | Default | Meaning |

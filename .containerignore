@@ -1,0 +1,17 @@
+# Build context of orchestration/Containerfile (the repository root): only what the
+# image needs. This keeps API keys (.illustris_api_key.txt, .hf_*), .env files,
+# data, outputs, virtual environments and .git out of the image.
+#
+# It has to be here rather than next to the Containerfile: Buildah 1.33 doesn't
+# find orchestration/Containerfile.containerignore when podman-compose passes
+# relative paths.
+*
+!pyproject.toml
+!uv.lock
+!README.md
+!LICENSE
+!src/
+!pipelines/
+!orchestration/dags/
+**/__pycache__
+**/*.egg-info
