@@ -1,0 +1,51 @@
+# Airflow image with PEST installed in its own virtual environment (/opt/pest/.venv),
+# so that PEST's dependencies don't have to fit Airflow's constraints. The DAGs call
+# PEST through that environment's `pest` CLI and Python interpreter.
+#
+# Built from the repository root by orchestration/docker-compose.yaml.
+
+ARG AIRFLOW_VERSION=3.3.2
+ARG PYTHON_VERSION=3.12
+
+FROM ghcr.io/astral-sh/uv:0.12.20 AS uv
+
+FROM apache/airflow:${AIRFLOW_VERSION}-python${PYTHON_VERSION}
+
+COPY --from=uv /uv /usr/local/bin/uv
+
+USER root
+RUN install -d -o airflow -g 0 -m 2775 /opt/pest
+USER airflow
+
+# The PEST environment uses the same interpreter as Airflow, which
+# `@task.external_python` needs to pass arguments and results between them.
+WORKDIR /opt/pest
+ENV UV_PROJECT_ENVIRONMENT=/opt/pest/.venv \
+    UV_PYTHON=/usr/local/bin/python \
+    UV_PYTHON_DOWNLOADS=never \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy
+
+# Dependencies first, so that code changes don't reinstall them.
+COPY --chown=airflow:0 pyproject.toml uv.lock README.md LICENSE ./
+RUN --mount=type=cache,target=/home/airflow/.cache/uv,uid=50000,gid=0 \
+    uv sync --locked --no-dev --extra hf --no-install-project
+
+COPY --chown=airflow:0 src ./src
+RUN --mount=type=cache,target=/home/airflow/.cache/uv,uid=50000,gid=0 \
+    uv sync --locked --no-dev --extra hf --no-editable \
+    && /opt/pest/.venv/bin/pest --help
+
+COPY --chown=airflow:0 pipelines ./pipelines
+COPY --chown=airflow:0 orchestration/dags /opt/airflow/dags
+
+ENV PEST_PYTHON=/opt/pest/.venv/bin/python \
+    PEST_BIN=/opt/pest/.venv/bin/pest \
+    PEST_PIPELINES_DIR=/opt/pest/pipelines \
+    PEST_DATA_DIR=/opt/airflow/data \
+    PEST_OUTPUT_DIR=/opt/airflow/output \
+    PYTHONUNBUFFERED=1 \
+    MPLCONFIGDIR=/tmp/matplotlib \
+    HF_HOME=/opt/airflow/data/.cache/huggingface
+
+WORKDIR /opt/airflow

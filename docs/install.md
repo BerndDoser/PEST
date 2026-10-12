@@ -74,6 +74,13 @@ uv run --extra dev pytest tests/test_fits_converter.py
 uv run --extra dev pytest tests/test_fits_converter.py::test_some_case
 ```
 
+The tests of the Airflow DAGs in `tests/orchestration` are skipped unless the `airflow` dependency
+group is installed (see {doc}`airflow`):
+
+```bash
+uv run --extra dev --extra hf --group airflow pytest tests/orchestration
+```
+
 ### Lint and format
 
 PEST uses [ruff](https://docs.astral.sh/ruff/) for both linting and formatting.

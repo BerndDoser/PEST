@@ -63,11 +63,15 @@ def download_file(url: str, output_path: Path, api_key: str, chunk_size: int = 1
             print(f"Skipping {filename} (already exists)")
             return destination
 
+        # Stream into a temporary file and rename it only once complete, so an
+        # interrupted download is never mistaken for a finished one.
         print(f"Downloading {filename} ...")
-        with open(destination, "wb") as fh:
+        partial = destination.with_name(destination.name + ".part")
+        with open(partial, "wb") as fh:
             for chunk in response.iter_content(chunk_size=chunk_size):
                 if chunk:
                     fh.write(chunk)
+        os.replace(partial, destination)
 
     return destination
 
@@ -80,6 +84,25 @@ def extract_tarball(tar_path: Path) -> Path:
         tar.extractall(destination, filter="data")
     tar_path.unlink()
     return destination
+
+
+def download_and_extract(url: str, output_path: str | Path, api_key: str | None = None) -> Path:
+    """Download and extract a single tarball into output_path/<simulation>.
+
+    Idempotent: after a successful extraction a marker file is written, and a
+    later call for the same URL returns immediately without any HTTP request.
+    Returns the simulation directory the tarball was extracted into.
+    """
+    simulation_dir = Path(output_path) / get_simulation_name(url)
+    marker = simulation_dir / f".{url.rsplit('/', 1)[-1]}.extracted"
+    if marker.exists():
+        print(f"Skipping {url} (already extracted)")
+        return simulation_dir
+
+    api_key = api_key or get_illustris_api_key()
+    extract_tarball(download_file(url, output_path, api_key))
+    marker.touch()
+    return simulation_dir
 
 
 def download_files(urls: list[str], output_path: str | Path, api_key: str | None = None) -> list[Path]:
@@ -112,9 +135,9 @@ def main() -> None:
     else:
         urls = SKIRT_URLS
 
-    destinations = download_files(urls, args.path)
-    for destination in destinations:
-        extract_tarball(destination)
+    api_key = get_illustris_api_key()
+    for url in urls:
+        download_and_extract(url, args.path, api_key)
 
 
 if __name__ == "__main__":

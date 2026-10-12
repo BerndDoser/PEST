@@ -21,6 +21,12 @@ images, 3D PPP and PPV cubes, and point clouds.
 pip install astro-pest
 ```
 
+## Orchestration
+
+The `orchestration/` directory contains [Apache Airflow](https://airflow.apache.org/) DAGs that
+run the PEST pipelines as ETL workflows, and a Docker Compose setup to run them locally. See
+[Orchestration with Airflow](https://pest.readthedocs.io/en/latest/airflow.html).
+
 ## Documentation
 
 The `PEST` documentation, including the API reference, is available at:

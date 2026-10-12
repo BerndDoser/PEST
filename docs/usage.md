@@ -21,6 +21,8 @@ Extraction and transformation are fused into a single pass: each worker loads
 one record and immediately runs the whole transform chain on it, instead of
 rewriting the full dataset to disk once per transformation step.
 
+To run pipelines as parametrized, monitored workflows, see {doc}`airflow`.
+
 ### Extract
 
 An extractor class yields one record per object (e.g. galaxy).
@@ -176,8 +178,9 @@ pest-download-skirt data/illustris_skirt
 ```
 
 It requires an Illustris/TNG API key, provided via the `ILLUSTRIS_API_KEY` environment
-variable. Files that already exist in the destination simulation directory are skipped,
-and each tarball is deleted after being extracted.
+variable. Each tarball is deleted after being extracted, and a marker file records the
+extraction, so running the command again skips tarballs that were already extracted.
+An interrupted download is never mistaken for a complete one.
 
 By default it downloads a built-in list of TNG50, TNG100, and Illustris SDSS tarballs. Pass
 `--urls-file` to download a custom list instead (one URL per line):

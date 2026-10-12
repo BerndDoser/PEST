@@ -18,5 +18,6 @@ align: center
 
 install
 usage
+airflow
 api
 ```

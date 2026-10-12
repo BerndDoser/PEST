@@ -47,6 +47,12 @@ docs = [
     "sphinxcontrib-bibtex>=2.6.3",
 ]
 
+[dependency-groups]
+# Only needed to run/test the Airflow DAGs in orchestration/, which are not part of the package.
+airflow = [
+    "apache-airflow>=3.3.2,<3.4; python_version < '3.15'",
+]
+
 [project.scripts]
 pest = "pest.pipeline:main"
 pest-download-skirt = "pest.illustris_skirt_downloader:main"

@@ -1,8 +1,9 @@
+import io
 import tarfile
 
 import pytest
 
-from pest import download_files
+from pest import download_and_extract, download_files
 from pest.illustris_skirt_downloader import download_file, extract_tarball, get_simulation_name
 
 
@@ -17,6 +18,8 @@ class FakeResponse:
             raise RuntimeError(f"HTTP {self.status_code}")
 
     def iter_content(self, chunk_size):
+        if isinstance(self._content, Exception):
+            raise self._content
         yield self._content
 
     def __enter__(self):
@@ -139,3 +142,53 @@ def test_get_illustris_api_key_missing(monkeypatch):
 
     with pytest.raises(ValueError):
         get_illustris_api_key()
+
+
+def _tar_bytes(members: dict[str, bytes]) -> bytes:
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w") as tar:
+        for name, data in members.items():
+            info = tarfile.TarInfo(name)
+            info.size = len(data)
+            tar.addfile(info, io.BytesIO(data))
+    return buffer.getvalue()
+
+
+def test_download_and_extract_is_idempotent(tmp_path, monkeypatch):
+    url = "http://www.tng-project.org/api/TNG50-1/files/skirt_images_sdss.95.tar"
+    tar = _tar_bytes({"TNG50/sdss/snapshot_095/data/broadband_1.fits": b"fits"})
+    calls = []
+
+    def fake_get(url, headers, stream, timeout):
+        calls.append(url)
+        return FakeResponse(tar, {})
+
+    monkeypatch.setattr("pest.illustris_skirt_downloader.requests.get", fake_get)
+
+    simulation_dir = download_and_extract(url, tmp_path, api_key="secret")
+
+    assert simulation_dir == tmp_path / "TNG50-1"
+    assert (simulation_dir / "TNG50/sdss/snapshot_095/data/broadband_1.fits").read_bytes() == b"fits"
+    assert (simulation_dir / ".skirt_images_sdss.95.tar.extracted").exists()
+    assert not (simulation_dir / "skirt_images_sdss.95.tar").exists()
+    assert len(calls) == 1
+
+    # A second call must not touch the network, even though the tarball is gone.
+    assert download_and_extract(url, tmp_path, api_key="secret") == simulation_dir
+    assert len(calls) == 1
+
+
+def test_download_file_interrupted_leaves_no_destination(tmp_path, monkeypatch):
+    def fake_get(url, headers, stream, timeout):
+        return FakeResponse(ConnectionError("connection reset"), {})
+
+    monkeypatch.setattr("pest.illustris_skirt_downloader.requests.get", fake_get)
+
+    with pytest.raises(ConnectionError):
+        download_file(
+            "http://www.tng-project.org/api/TNG100-1/files/skirt_images_sdss.99.tar",
+            tmp_path,
+            api_key="secret",
+        )
+
+    assert not (tmp_path / "TNG100-1" / "skirt_images_sdss.99.tar").exists()

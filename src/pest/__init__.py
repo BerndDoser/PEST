@@ -2,6 +2,7 @@ import importlib.metadata
 
 from .add_circular_mask import AddCircularMask
 from .align_image_horizontally import AlignImageHorizontally
+from .config import apply_overrides, load_config, save_config
 from .count import Count
 from .create_normalized_rgb_colors import CreateNormalizedRGBColors
 from .crop import Crop
@@ -14,11 +15,17 @@ from .gaia_converter import GaiaConverter
 from .gaussian_blur import GaussianBlur
 from .hugging_face_writer import HuggingFaceWriter
 from .illustris_skirt_dataset import IllustrisSkirtDataset
-from .illustris_skirt_downloader import download_files, extract_tarball, get_illustris_api_key, get_simulation_name
+from .illustris_skirt_downloader import (
+    download_and_extract,
+    download_files,
+    extract_tarball,
+    get_illustris_api_key,
+    get_simulation_name,
+)
 from .load_particles import LoadParticles
 from .min_max_normalize import MinMaxNormalize
 from .orientation import estimate_geometry_weighted, visualize_results
-from .parquet_writer import ParquetWriter
+from .parquet_writer import ParquetWriter, validate_parquet
 from .pipeline import Pipeline
 from .point_cloud_generator import PointCloudGenerator
 from .pynbody_dataset import PynbodyDataset
@@ -51,10 +58,15 @@ __all__ = [
     "ReflectionalInvariance",
     "RenderStars",
     "ResizeImage",
+    "apply_overrides",
+    "download_and_extract",
     "download_files",
     "estimate_geometry_weighted",
     "extract_tarball",
     "get_illustris_api_key",
     "get_simulation_name",
+    "load_config",
+    "save_config",
+    "validate_parquet",
     "visualize_results",
 ]

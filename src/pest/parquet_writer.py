@@ -1,4 +1,5 @@
 from collections.abc import Iterable
+from pathlib import Path
 
 import numpy as np
 import pyarrow as pa
@@ -49,6 +50,7 @@ class ParquetWriter:
         self.chunk_size = chunk_size
 
     def __call__(self, records: Iterable[dict]) -> None:
+        Path(self.output_path).parent.mkdir(parents=True, exist_ok=True)
         writer = None
         batch: list[dict] = []
         chunk_size = self.chunk_size or float("inf")
@@ -73,3 +75,28 @@ class ParquetWriter:
             writer = pq.ParquetWriter(self.output_path, table.schema)
         writer.write_table(table)
         return writer
+
+
+def validate_parquet(path: str | Path, min_rows: int = 1, required_columns: Iterable[str] = ()) -> dict:
+    """Check a Parquet file written by a pipeline, reading only its metadata.
+
+    Raises `ValueError` if the file has fewer than `min_rows` rows or lacks any
+    of `required_columns`. Returns a summary with the path, row count, column
+    names and file size.
+    """
+    path = Path(path)
+    metadata = pq.read_metadata(path)
+    columns = pq.read_schema(path).names
+
+    if metadata.num_rows < min_rows:
+        raise ValueError(f"{path} has {metadata.num_rows} rows, expected at least {min_rows}.")
+    missing = [column for column in required_columns if column not in columns]
+    if missing:
+        raise ValueError(f"{path} is missing columns {missing}; found {columns}.")
+
+    return {
+        "path": str(path),
+        "num_rows": metadata.num_rows,
+        "columns": columns,
+        "size_bytes": path.stat().st_size,
+    }
