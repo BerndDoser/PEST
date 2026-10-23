@@ -364,6 +364,8 @@ center is refined on the star particles.
 | `width` | Image width, as a float in kpc or a unit string, e.g. `50 kpc` (default 50) |
 | `resolution` | Image size in pixels (default: pynbody's default) |
 | `center_mode` | pynbody centering scheme to refine the center on the stars: `ssc` (default), `com` or `hyb`. `catalogue` keeps the catalogue center |
+| `orientation` | Rotate the galaxy before rendering with `pynbody.analysis.faceon` or `sideon` (default: no rotation). Loads the star velocities as well |
+| `disk_size` | Radius around the center that determines the angular momentum for `orientation`, as a float in kpc or a unit string (default `5 kpc`) |
 | `column` | Name of the added column (default `image`) |
 | `render_args` | Further arguments for `pynbody.plot.stars.render`, e.g. `{dynamic_range: 3.0}` or the bands `r_band`, `g_band` and `b_band` (default `I`, `V` and `U`). Dust (`with_dust`) is not supported, as pynbody computes it from the gas particles, which are not loaded |
 

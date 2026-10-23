@@ -27,6 +27,7 @@ transform:
     init_args:
       width: 50 # [kpc]
       resolution: 256
+      # orientation: faceon # rotate the disk face-on (or sideon) before rendering
   - column: image
     transformations:
       - class_path: pest.ResizeImage

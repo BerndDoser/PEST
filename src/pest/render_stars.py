@@ -5,6 +5,8 @@ from pynbody.array import SimArray
 # pynbody centering schemes that work with the star particles alone ("pot" needs the potential, which is not
 # loaded), and "catalogue" to keep the center of the dataset.
 CENTER_MODES = [None, "catalogue", "ssc", "com", "hyb"]
+# pynbody.analysis functions that rotate the galaxy by the angular momentum of its disk.
+ORIENTATIONS = [None, "faceon", "sideon"]
 
 
 class RenderStars:
@@ -25,6 +27,14 @@ class RenderStars:
             on the star particles: "ssc", "com" or "hyb". If `None`, the pynbody
             default ("ssc") is used. "catalogue" keeps the center of the
             dataset, e.g. the most bound particle of SUBFIND catalogues.
+        orientation (str | None): Rotate the galaxy before rendering with
+            `pynbody.analysis.faceon` or `pynbody.analysis.sideon`, which orient
+            the angular momentum of the stars within `disk_size` along the line
+            of sight or perpendicular to it. If `None`, the image is not rotated.
+            The velocities of the stars are loaded for this.
+        disk_size (float | str): Radius around the center that determines the
+            angular momentum for `orientation`, as a float in the snapshot units
+            or a unit string.
         column (str): Name of the added column.
         render_args (dict | None): Additional arguments for
             `pynbody.plot.stars.render`, e.g. `{"dynamic_range": 3.0}`. Dust
@@ -37,6 +47,8 @@ class RenderStars:
         width: float | str = 50,
         resolution: int | None = None,
         center_mode: str | None = None,
+        orientation: str | None = None,
+        disk_size: float | str = "5 kpc",
         column: str = "image",
         render_args: dict | None = None,
     ):
@@ -45,9 +57,13 @@ class RenderStars:
                 f"center_mode must be one of {CENTER_MODES}, got {center_mode!r}. "
                 "For the potential minimum, use 'catalogue' with SUBFIND catalogues."
             )
+        if orientation not in ORIENTATIONS:
+            raise ValueError(f"orientation must be one of {ORIENTATIONS}, got {orientation!r}.")
         self.width = width
         self.resolution = resolution
         self.center_mode = center_mode
+        self.orientation = orientation
+        self.disk_size = disk_size
         self.column = column
         self.render_args = render_args or {}
         if self.render_args.get("with_dust"):
@@ -64,7 +80,7 @@ class RenderStars:
             raise RuntimeError("RenderStars must be bound to a dataset before use.")
         if "subhalo_id" not in record:
             raise KeyError("RenderStars requires the 'subhalo_id' column in the extracted records.")
-        stars = self.dataset.stars(record["subhalo_id"])
+        stars = self.dataset.stars(record["subhalo_id"], **({"velocities": True} if self.orientation else {}))
         # pynbody fails with an obscure KeyError for a missing star family, e.g. in dark matter only runs.
         if len(stars) == 0:
             raise ValueError(f"Subhalo {record['subhalo_id']} has no star particles to render.")
@@ -73,6 +89,11 @@ class RenderStars:
             # computing one anyway.
             pynbody.analysis.center(
                 stars, mode=self.center_mode, with_velocity=False, cen_num_particles=0, move_all=False
+            )
+        if self.orientation is not None:
+            # The center was set above, and `stars` is a private snapshot, so rotating only it is enough.
+            getattr(pynbody.analysis, self.orientation)(
+                stars, disk_size=self.disk_size, already_centered=True, move_all=False
             )
         # The renderer multiplies the luminosity density, 10**(-0.4 mag) * rho / mass, by mass / rho, so the SPH
         # density cancels out. A placeholder saves computing it, about a third of the time of the smoothing.

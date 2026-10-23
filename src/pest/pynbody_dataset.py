@@ -17,6 +17,8 @@ PARTICLE_FIELDS = {"pos", "vel", "mass"}
 CENTER_PROPERTIES = [("SubhaloPos", "SubhaloVel"), ("sub_pos", "sub_vel")]
 # Star arrays that `stars()` provides for rendering.
 STAR_ARRAYS = ["pos", "mass", "aform", "metals"]
+# Additional star array for orienting the galaxy by its angular momentum.
+STAR_VELOCITY_ARRAYS = ["vel"]
 
 
 class PynbodyDataset:
@@ -157,7 +159,7 @@ class PynbodyDataset:
             particles = getattr(halo, COMPONENTS[component])
         return {field: self._particle_field(particles, field, subhalo_id) for field in fields}
 
-    def stars(self, subhalo_id: int | np.integer):
+    def stars(self, subhalo_id: int | np.integer, velocities: bool = False):
         """A pynbody snapshot of the star particles of one subhalo, e.g. for rendering.
 
         Positions are in kpc relative to the subhalo center, which is taken from
@@ -166,16 +168,23 @@ class PynbodyDataset:
         snapshots, only the arrays needed for rendering ("pos", "mass", "aform",
         "metals") are read (see `_read_particles()`). Wind particles, which TNG
         stores with the stars, are kept as pynbody keeps them: they have no age
-        and emit no light. Other formats use the stars of `halo()`.
+        and emit no light. Other formats use the stars of `halo()`. With
+        `velocities`, the star velocities relative to the subhalo center are
+        provided as well, e.g. to orient the galaxy by its angular momentum.
         """
         subhalo_id = int(subhalo_id)
-        stars = self._read_particles(subhalo_id, pynbody.family.star, STAR_ARRAYS)
+        arrays = STAR_ARRAYS + STAR_VELOCITY_ARRAYS if velocities else STAR_ARRAYS
+        stars = self._read_particles(subhalo_id, pynbody.family.star, arrays)
         if stars is None:
             stars = self.halo(subhalo_id).st
         if self.center_properties is not None:
             stars["pos"] = self._relative_to_center(stars["pos"], "pos", subhalo_id)
+            if velocities:
+                stars["vel"] = self._relative_to_center(stars["vel"], "vel", subhalo_id)
         elif len(stars):
-            pynbody.analysis.center(stars, with_velocity=False, cen_num_particles=0, move_all=False)
+            pynbody.analysis.center(
+                stars, with_velocity=velocities, cen_num_particles=None if velocities else 0, move_all=False
+            )
         return stars
 
     def _read_particles(self, subhalo_id: int, family, names: list[str]):

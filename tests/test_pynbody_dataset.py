@@ -289,7 +289,9 @@ def test_render_stars_catalogue_center(fake_pynbody, fake_render):
     assert [call[0] for call in fake_render] == ["render"]
 
 
-@pytest.mark.parametrize("kwargs", [{"center_mode": "pot"}, {"render_args": {"with_dust": True}}])
+@pytest.mark.parametrize(
+    "kwargs", [{"center_mode": "pot"}, {"orientation": "edgeon"}, {"render_args": {"with_dust": True}}]
+)
 def test_render_stars_rejects_unsupported(kwargs):
     with pytest.raises(ValueError):
         RenderStars(**kwargs)
@@ -419,6 +421,24 @@ def test_tng_render_stars_direct_matches_halo(center_mode):
     dataset.direct_loading = False
     loaded = step({"subhalo_id": 0})["image"]
     np.testing.assert_allclose(direct, loaded, atol=1e-6)
+
+
+@pytest.mark.filterwarnings("ignore")
+@pytest.mark.parametrize("orientation", ["faceon", "sideon"])
+def test_tng_render_stars_orientation(orientation):
+    dataset = PynbodyDataset(TNG_SNAPSHOT)
+    step = RenderStars(width=20, resolution=16, center_mode="catalogue", orientation=orientation, disk_size="20 kpc")
+    step.bind(dataset)
+
+    image = step({"subhalo_id": 0})["image"]
+    assert image.shape == (3, 16, 16)
+    plain = RenderStars(width=20, resolution=16, center_mode="catalogue")
+    plain.bind(dataset)
+    assert not np.allclose(image, plain({"subhalo_id": 0})["image"])
+
+    # The direct reading of the snapshot gives the same image as loading the halo with pynbody.
+    dataset.direct_loading = False
+    np.testing.assert_allclose(image, step({"subhalo_id": 0})["image"], atol=1e-5)
 
 
 @pytest.mark.filterwarnings("ignore")
