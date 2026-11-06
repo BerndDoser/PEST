@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pynbody
@@ -465,6 +467,34 @@ def test_tng_catalogue():
     assert dataset[3] == {"subhalo_id": 3, "snapshot": 99, "SubhaloSFR": np.float32(1.2), "SubhaloFlag": 1}
     mask = FilterRange("SubhaloMassType", index=4, min=2e9, units="Msol").mask(dataset.table())
     assert list(np.flatnonzero(mask)) == [0, 3]
+
+
+@pytest.fixture
+def illustris_snapshot(tmp_path):
+    """The TNG test data with the file names of the original Illustris: groups_099/groups_099.N.hdf5."""
+    tng = Path(TNG_SNAPSHOT).parent.parent
+    for directory in ("snapdir_099", "groups_099"):
+        (tmp_path / directory).mkdir()
+    for source in (tng / "snapdir_099").iterdir():
+        (tmp_path / "snapdir_099" / source.name).symlink_to(source.resolve())
+    catalogue = tng / "groups_099" / "fof_subhalo_tab_099.0.hdf5"
+    (tmp_path / "groups_099" / "groups_099.0.hdf5").symlink_to(catalogue.resolve())
+    # Other files in the catalogue directory made pynbody take it for a binary SUBFIND catalogue.
+    (tmp_path / "groups_099" / "checksums.txt").write_text("")
+    return tmp_path / "snapdir_099" / "snap_099"
+
+
+@pytest.mark.filterwarnings("ignore")
+@pytest.mark.parametrize("halos_path", [None, "groups_099/groups_099"])
+def test_illustris_catalogue(illustris_snapshot, halos_path):
+    if halos_path is not None:
+        halos_path = illustris_snapshot.parent.parent / halos_path
+    dataset = PynbodyDataset(str(illustris_snapshot), halos_path=halos_path, columns=["subhalo_id", "SubhaloSFR"])
+
+    assert type(dataset.halos).__name__ == "IllustrisSubfindHDFCatalogue"
+    assert len(dataset) == 5
+    assert dataset[3] == {"subhalo_id": 3, "SubhaloSFR": np.float32(1.2)}
+    assert dataset.particles(0, "stars", ["pos"])["pos"].shape == (64, 3)
 
 
 @pytest.mark.filterwarnings("ignore")

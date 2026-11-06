@@ -4,13 +4,15 @@ from pathlib import Path
 import numpy as np
 import pynbody
 from pynbody.array import SimArray
+from pynbody.halo.subfindhdf import TNGSubfindHDFCatalogue
 from pynbody.snapshot.gadgethdf import ArepoHDFSnap
 
 from .units import in_units
 
 COMPONENTS = {"stars": "st", "gas": "g", "dm": "dm"}
-# pynbody tries the generic Arepo catalogue first, which reads the wrong multi-file header for TNG.
-TNG_CATALOGUE = ["TNGSubfindHDFCatalogue"]
+# pynbody tries the generic Arepo catalogue first, which reads the wrong multi-file header for TNG, and does not
+# find the Illustris catalogue files (see `IllustrisSubfindHDFCatalogue`).
+SUBFIND_CATALOGUES = ["TNGSubfindHDFCatalogue", "IllustrisSubfindHDFCatalogue"]
 DEFAULT_COLUMNS = ["subhalo_id"]
 PARTICLE_FIELDS = {"pos", "vel", "mass"}
 # Catalogue properties holding the (position, velocity) of the subhalo center, per catalogue format.
@@ -21,6 +23,29 @@ STAR_ARRAYS = ["pos", "mass", "aform", "metals"]
 GAS_ARRAYS = ["pos", "mass", "rho"]
 # Additional array for orienting the galaxy by its angular momentum.
 VELOCITY_ARRAYS = ["vel"]
+
+
+class IllustrisSubfindHDFCatalogue(TNGSubfindHDFCatalogue):
+    """SUBFIND catalogue of the original Illustris simulations (e.g. Illustris-1).
+
+    It has the HDF5 format of IllustrisTNG, but its files are named
+    `groups_XXX/groups_XXX.N.hdf5` instead of `groups_XXX/fof_subhalo_tab_XXX.N.hdf5`.
+    pynbody does not find them, and falls back to its reader of binary SUBFIND
+    catalogues, which fails to open `groups_XXX/subhalo_tab_XXX.0`. A catalogue
+    path passed by the user is the file name without the `.N.hdf5` suffix,
+    e.g. `.../groups_135/groups_135`.
+    """
+
+    @classmethod
+    def _catalogue_filename(cls, sim, user_provided_filename=None, namestem="groups_"):
+        # `namestem` is "groups_" for the catalogue, or "subhalo_prog_"/"subhalo_desc_" for merger tree files, which
+        # Illustris does not have next to the catalogue.
+        if user_provided_filename is None:
+            return super()._catalogue_filename(sim, None, namestem)
+        path = Path(user_provided_filename)
+        if not path.name.startswith("groups_"):
+            raise ValueError("Filename must start with 'groups_'")
+        return str(path.with_name(namestem + path.name.removeprefix("groups_")))
 
 
 class PynbodyDataset:
@@ -107,7 +132,7 @@ class PynbodyDataset:
         if halos_args is not None:
             return self.snapshot.halos(**kwargs, **halos_args)
         try:
-            return self.snapshot.halos(subhalos=True, priority=TNG_CATALOGUE, **kwargs)
+            return self.snapshot.halos(subhalos=True, priority=SUBFIND_CATALOGUES, **kwargs)
         except (TypeError, RuntimeError):
             # Catalogues without a flat list of subhalos (e.g. EAGLE, AHF, AdaptaHOP) reject `subhalos`.
             return self.snapshot.halos(**kwargs)
