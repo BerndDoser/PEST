@@ -88,8 +88,8 @@ The `transform` list accepts two kinds of entries:
 `FilterRange` keeps records whose `column` (optionally `[..., index]`, converted to `units`) lies
 within `[min, max]`. It works on any numeric column, per record or vectorized on the whole table
 (see below). The other transformations are described with the data they work on:
-{ref}`image transforms <usage-skirt-transforms>`, {ref}`LoadParticles <usage-load-particles>` and
-{ref}`RenderStars <usage-render-options>`.
+{ref}`image transforms <usage-skirt-transforms>`, {ref}`LoadParticles <usage-load-particles>`,
+{ref}`RenderStars <usage-render-options>` and {ref}`RenderGas <usage-render-gas-options>`.
 
 **Filtering before extraction.** If the dataset provides a `table()` of cheap per-record
 columns (as `PynbodyDataset` does with the halo catalogue), the *leading* record-level
@@ -306,8 +306,8 @@ velocities are relative to the catalogue center (`SubhaloPos`/`SubhaloVel` or
 `pynbody.analysis.center` if the catalogue has none.
 
 (usage-tng-direct)=
-For IllustrisTNG-like snapshots (Arepo HDF5 with a SUBFIND catalogue), `LoadParticles` and
-`RenderStars` read only the arrays they need directly from the snapshot files, without
+For IllustrisTNG-like snapshots (Arepo HDF5 with a SUBFIND catalogue), `LoadParticles`,
+`RenderStars` and `RenderGas` read only the arrays they need directly from the snapshot files, without
 reopening the whole snapshot for every subhalo. Arrays that pynbody derives instead of
 reading them (e.g. `age`) are still loaded with pynbody.
 
@@ -374,6 +374,55 @@ center is refined on the star particles.
 
 For IllustrisTNG-like snapshots, the star particles are read
 {ref}`directly from the snapshot files <usage-tng-direct>`.
+
+(usage-render-gas)=
+## Rendered gas images
+
+`RenderGas` is the gas counterpart of `RenderStars`: it renders the gas particles of each subhalo
+with `pynbody.plot.image`, by default into a map of the projected gas surface density. Use it in place
+of, or next to, `RenderStars`, and select subhalos with at least 32 gas particles, which the SPH
+smoothing needs:
+
+```yaml
+transform:
+  - class_path: pest.FilterRange # at least 32 gas particles
+    init_args:
+      column: SubhaloLenType
+      index: 0
+      min: 32
+  - class_path: pest.RenderGas
+    init_args:
+      width: 50 kpc
+      resolution: 128
+      orientation: faceon
+```
+
+(usage-render-gas-options)=
+### RenderGas options
+
+`RenderGas` adds the image as a float32 array of shape `(1, height, width)`, channels first and rows
+from top to bottom, so the image transforms work on it as on star images. Before rendering, the
+center is refined on the gas particles, and `orientation` uses the angular momentum of the gas.
+
+| Argument | Description |
+|---|---|
+| `width` | Image width, as a float in kpc or a unit string, e.g. `50 kpc` (default 50) |
+| `resolution` | Image size in pixels (default: pynbody's default) |
+| `center_mode` | pynbody centering scheme to refine the center on the gas: `ssc` (default), `com` or `hyb`. `catalogue` keeps the catalogue center |
+| `orientation` | Rotate the galaxy before rendering with `pynbody.analysis.faceon` or `sideon` (default: no rotation). Loads the gas velocities as well |
+| `disk_size` | Radius around the center that determines the angular momentum for `orientation`, as a float in kpc or a unit string (default `5 kpc`) |
+| `qty` | Gas array to render (default `rho`) |
+| `units` | Units of the image (default `Msol kpc**-2`). Units of `qty` integrated along the line of sight give a projected image; `null` keeps the units of `qty`, which gives a slice at z = 0 unless `render_args` sets a `weight` |
+| `log` | Store the log10 of the image, with pixels without gas set to the smallest positive value (default `true`). Set it to `false` for linear values or quantities that can be negative |
+| `column` | Name of the added column (default `gas_image`) |
+| `render_args` | Further arguments for `pynbody.plot.image`, e.g. `{kernel: WendlandC2}` |
+
+For example, the density-weighted temperature along the line of sight is
+`qty: temp`, `units: null` and `render_args: {weight: rho}`.
+
+For IllustrisTNG-like snapshots, the positions, masses and densities (`Density`) of the gas are read
+{ref}`directly from the snapshot files <usage-tng-direct>`. Quantities that pynbody derives (e.g. `temp`)
+are rendered from the gas loaded with pynbody instead.
 
 (usage-download)=
 ## Downloading the Illustris/TNG SKIRT dataset

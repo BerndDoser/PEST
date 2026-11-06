@@ -1,0 +1,35 @@
+num_workers: 4
+shuffle: True
+seed: 42
+
+extract:
+  class_path: pest.PynbodyDataset
+  init_args:
+    snapshot_path: tests/data/illustris_tng/TNG50-1/snapdir_099/snap_099
+    columns:
+      - subhalo_id
+      - snapshot
+      - SubhaloSFR
+
+transform:
+  - class_path: pest.FilterRange
+    # Only render subhalos flagged galaxies
+    init_args:
+      column: SubhaloFlag
+      min: 1
+  - class_path: pest.FilterRange
+    # RenderGas can only handle galaxies with at least 32 gas particles
+    init_args:
+      column: SubhaloLenType
+      index: 0
+      min: 32
+  - class_path: pest.RenderGas
+    init_args:
+      width: 50 # [kpc]
+      resolution: 256
+      orientation: faceon
+
+load:
+  - class_path: pest.ParquetWriter
+    init_args:
+      output_path: output/pynbody_tng_render_gas.parquet

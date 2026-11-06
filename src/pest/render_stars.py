@@ -2,11 +2,34 @@ import numpy as np
 import pynbody
 from pynbody.array import SimArray
 
-# pynbody centering schemes that work with the star particles alone ("pot" needs the potential, which is not
-# loaded), and "catalogue" to keep the center of the dataset.
+# pynbody centering schemes that work with the particles of one family alone ("pot" needs the potential, which is
+# not loaded), and "catalogue" to keep the center of the dataset.
 CENTER_MODES = [None, "catalogue", "ssc", "com", "hyb"]
 # pynbody.analysis functions that rotate the galaxy by the angular momentum of its disk.
 ORIENTATIONS = [None, "faceon", "sideon"]
+
+
+def check_center_and_orientation(center_mode: str | None, orientation: str | None) -> None:
+    if center_mode not in CENTER_MODES:
+        raise ValueError(
+            f"center_mode must be one of {CENTER_MODES}, got {center_mode!r}. "
+            "For the potential minimum, use 'catalogue' with SUBFIND catalogues."
+        )
+    if orientation not in ORIENTATIONS:
+        raise ValueError(f"orientation must be one of {ORIENTATIONS}, got {orientation!r}.")
+
+
+def center_and_orient(particles, center_mode: str | None, orientation: str | None, disk_size: float | str) -> None:
+    """Refine the center of `particles` with `pynbody.analysis.center` and rotate them by their angular momentum.
+
+    `particles` is a private snapshot of one family, so moving and rotating only it is enough.
+    """
+    if center_mode != "catalogue":
+        # The velocities are already relative to the subhalo velocity of the dataset, so no velocity center is
+        # needed; cen_num_particles=0 keeps "ssc" from computing one anyway.
+        pynbody.analysis.center(particles, mode=center_mode, with_velocity=False, cen_num_particles=0, move_all=False)
+    if orientation is not None:
+        getattr(pynbody.analysis, orientation)(particles, disk_size=disk_size, already_centered=True, move_all=False)
 
 
 class RenderStars:
@@ -52,13 +75,7 @@ class RenderStars:
         column: str = "image",
         render_args: dict | None = None,
     ):
-        if center_mode not in CENTER_MODES:
-            raise ValueError(
-                f"center_mode must be one of {CENTER_MODES}, got {center_mode!r}. "
-                "For the potential minimum, use 'catalogue' with SUBFIND catalogues."
-            )
-        if orientation not in ORIENTATIONS:
-            raise ValueError(f"orientation must be one of {ORIENTATIONS}, got {orientation!r}.")
+        check_center_and_orientation(center_mode, orientation)
         self.width = width
         self.resolution = resolution
         self.center_mode = center_mode
@@ -84,17 +101,7 @@ class RenderStars:
         # pynbody fails with an obscure KeyError for a missing star family, e.g. in dark matter only runs.
         if len(stars) == 0:
             raise ValueError(f"Subhalo {record['subhalo_id']} has no star particles to render.")
-        if self.center_mode != "catalogue":
-            # The image is not rotated, so no velocity center is needed; cen_num_particles=0 keeps "ssc" from
-            # computing one anyway.
-            pynbody.analysis.center(
-                stars, mode=self.center_mode, with_velocity=False, cen_num_particles=0, move_all=False
-            )
-        if self.orientation is not None:
-            # The center was set above, and `stars` is a private snapshot, so rotating only it is enough.
-            getattr(pynbody.analysis, self.orientation)(
-                stars, disk_size=self.disk_size, already_centered=True, move_all=False
-            )
+        center_and_orient(stars, self.center_mode, self.orientation, self.disk_size)
         # The renderer multiplies the luminosity density, 10**(-0.4 mag) * rho / mass, by mass / rho, so the SPH
         # density cancels out. A placeholder saves computing it, about a third of the time of the smoothing.
         stars["rho"] = SimArray(

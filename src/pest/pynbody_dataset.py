@@ -17,8 +17,10 @@ PARTICLE_FIELDS = {"pos", "vel", "mass"}
 CENTER_PROPERTIES = [("SubhaloPos", "SubhaloVel"), ("sub_pos", "sub_vel")]
 # Star arrays that `stars()` provides for rendering.
 STAR_ARRAYS = ["pos", "mass", "aform", "metals"]
-# Additional star array for orienting the galaxy by its angular momentum.
-STAR_VELOCITY_ARRAYS = ["vel"]
+# Gas arrays that `gas()` provides for rendering.
+GAS_ARRAYS = ["pos", "mass", "rho"]
+# Additional array for orienting the galaxy by its angular momentum.
+VELOCITY_ARRAYS = ["vel"]
 
 
 class PynbodyDataset:
@@ -35,8 +37,8 @@ class PynbodyDataset:
     of subhalos (e.g. a mass range) is done with filters in the transform stage,
     which can use `table()` to drop subhalos before any record is extracted.
     Particle data is added afterwards by a `pest.LoadParticles` transform step,
-    using `particles()`, and stellar images by a `pest.RenderStars` step, using
-    `stars()`.
+    using `particles()`, stellar images by a `pest.RenderStars` step, using
+    `stars()`, and gas images by a `pest.RenderGas` step, using `gas()`.
 
     `snapshot_path` can also be a list of snapshots (see `MultiSnapshotDataset`),
     whose catalogues are concatenated into one dataset.
@@ -182,20 +184,41 @@ class PynbodyDataset:
         `velocities`, the star velocities relative to the subhalo center are
         provided as well, e.g. to orient the galaxy by its angular momentum.
         """
+        return self._component_snapshot(subhalo_id, "stars", STAR_ARRAYS, velocities)
+
+    def gas(self, subhalo_id: int | np.integer, velocities: bool = False, arrays: list[str] | tuple = ()):
+        """A pynbody snapshot of the gas particles of one subhalo, e.g. for rendering.
+
+        Positions are in kpc relative to the subhalo center, as for `stars()`.
+        For IllustrisTNG-like snapshots, only the arrays needed for rendering
+        ("pos", "mass", "rho") and the additional `arrays` (e.g. the rendered
+        quantity) are read (see `_read_particles()`). If any of them is not
+        stored in the snapshot files, e.g. derived arrays like "temp", the gas
+        of `halo()` is used instead, where pynbody derives them. With
+        `velocities`, the gas velocities relative to the subhalo center are
+        provided as well, e.g. to orient the galaxy by its angular momentum.
+        """
+        names = GAS_ARRAYS + [name for name in dict.fromkeys(arrays) if name not in GAS_ARRAYS]
+        return self._component_snapshot(subhalo_id, "gas", names, velocities)
+
+    def _component_snapshot(self, subhalo_id: int | np.integer, component: str, arrays: list[str], velocities: bool):
+        """The `component` particles of one subhalo with `arrays`, positioned relative to the subhalo center."""
         subhalo_id = int(subhalo_id)
-        arrays = STAR_ARRAYS + STAR_VELOCITY_ARRAYS if velocities else STAR_ARRAYS
-        stars = self._read_particles(subhalo_id, pynbody.family.star, arrays)
-        if stars is None:
-            stars = self.halo(subhalo_id).st
+        family_name = COMPONENTS[component]
+        if velocities:
+            arrays = arrays + [name for name in VELOCITY_ARRAYS if name not in arrays]
+        particles = self._read_particles(subhalo_id, pynbody.family.get_family(family_name), arrays)
+        if particles is None:
+            particles = getattr(self.halo(subhalo_id), family_name)
         if self.center_properties is not None:
-            stars["pos"] = self._relative_to_center(stars["pos"], "pos", subhalo_id)
+            particles["pos"] = self._relative_to_center(particles["pos"], "pos", subhalo_id)
             if velocities:
-                stars["vel"] = self._relative_to_center(stars["vel"], "vel", subhalo_id)
-        elif len(stars):
+                particles["vel"] = self._relative_to_center(particles["vel"], "vel", subhalo_id)
+        elif len(particles):
             pynbody.analysis.center(
-                stars, with_velocity=velocities, cen_num_particles=None if velocities else 0, move_all=False
+                particles, with_velocity=velocities, cen_num_particles=None if velocities else 0, move_all=False
             )
-        return stars
+        return particles
 
     def _read_particles(self, subhalo_id: int, family, names: list[str]):
         """Arrays `names` of the `family` particles of one subhalo, read directly from the snapshot files.
@@ -311,7 +334,7 @@ class MultiSnapshotDataset(PynbodyDataset):
 
     The records of the snapshots follow each other in the order of the list.
     Subhalo ids are only unique within a snapshot, so the particle methods
-    (`particles()`, `stars()`, `halo()`) refer to the snapshot of the record
+    (`particles()`, `stars()`, `gas()`, `halo()`) refer to the snapshot of the record
     extracted last with `__getitem__`, as the transform steps run on one record
     at a time. Add the "snapshot" column to tell the records apart in the output.
     """
@@ -379,3 +402,6 @@ class MultiSnapshotDataset(PynbodyDataset):
 
     def stars(self, subhalo_id: int | np.integer, velocities: bool = False):
         return self._current.stars(subhalo_id, velocities=velocities)
+
+    def gas(self, subhalo_id: int | np.integer, velocities: bool = False, arrays: list[str] | tuple = ()):
+        return self._current.gas(subhalo_id, velocities=velocities, arrays=arrays)

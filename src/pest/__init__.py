@@ -23,6 +23,7 @@ from .pipeline import Pipeline
 from .point_cloud_generator import PointCloudGenerator
 from .pynbody_dataset import PynbodyDataset
 from .reflectional_invariance import ReflectionalInvariance
+from .render_gas import RenderGas
 from .render_stars import RenderStars
 from .resize_image import ResizeImage
 
@@ -49,6 +50,7 @@ __all__ = [
     "PointCloudGenerator",
     "PynbodyDataset",
     "ReflectionalInvariance",
+    "RenderGas",
     "RenderStars",
     "ResizeImage",
     "download_files",

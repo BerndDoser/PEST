@@ -4,20 +4,27 @@ import pynbody
 import pytest
 
 import pest.pynbody_dataset
-from pest import FilterRange, LoadParticles, Pipeline, PynbodyDataset, RenderStars
+from pest import FilterRange, LoadParticles, Pipeline, PynbodyDataset, RenderGas, RenderStars
 
 # 5 subhalos: stellar masses [Msun] and flags
 STELLAR_MASS = np.array([1e8, 5e9, 2e10, 3e10, 1e12])
 SUBHALO_FLAG = np.array([1, 1, 0, 1, 1])
 
 
-def make_stars(pos, vel, mass):
-    """A pynbody snapshot of star particles."""
-    stars = pynbody.new(star=len(mass))
+def make_stars(pos, vel, mass, family="star"):
+    """A pynbody snapshot of star particles, or of another `family`."""
+    stars = pynbody.new(**{family: len(mass)})
     stars["pos"] = pynbody.array.SimArray(pos, "kpc")
     stars["vel"] = pynbody.array.SimArray(vel, "km s**-1")
     stars["mass"] = pynbody.array.SimArray(mass, "Msol")
     return stars
+
+
+def make_gas(pos, vel, mass):
+    """A pynbody snapshot of gas particles, with a density."""
+    gas = make_stars(pos, vel, mass, family="gas")
+    gas["rho"] = pynbody.array.SimArray(np.full(len(mass), 1e7), "Msol kpc**-3")
+    return gas
 
 
 class FakeHalo:
@@ -25,6 +32,7 @@ class FakeHalo:
         n = subhalo_id + 1
         pos = np.full((n, 3), 10.0 * subhalo_id + 1.0)
         self.st = make_stars(pos, pos * 2, np.ones(n))
+        self.g = make_gas(pos + 1.0, pos * 2, np.ones(n))
 
     def physical_units(self):
         pass
@@ -250,8 +258,16 @@ def fake_render(monkeypatch):
         image[0] = 1.0  # first row = lowest y in pynbody
         return image
 
+    def image(halo, **kwargs):
+        calls.append(("image", halo, kwargs))
+        image = np.full((4, 4), 100.0, dtype=np.float32)
+        image[0] = 1000.0  # first row = lowest y in pynbody
+        image[1] = 0.0  # no gas
+        return pynbody.array.SimArray(image, "Msol kpc**-2")
+
     monkeypatch.setattr(pynbody.analysis, "center", lambda halo, **kw: calls.append(("center", halo, kw)))
     monkeypatch.setattr(pynbody.plot.stars, "render", render)
+    monkeypatch.setattr(pynbody.plot, "image", image)
     return calls
 
 
@@ -325,6 +341,115 @@ def test_render_stars_requires_binding():
 def test_render_stars_requires_stars():
     with pytest.raises(TypeError):
         RenderStars().bind(object())
+
+
+def test_gas_from_halo(fake_pynbody):
+    dataset = PynbodyDataset("snap_099")
+
+    gas = dataset.gas(np.int32(3), arrays=["rho", "temp"])
+    assert fake_pynbody.fake_halos.accessed == [3]
+    assert len(gas) == 4
+    # Relative to the catalogue center.
+    np.testing.assert_allclose(gas["pos"], 2.0)
+
+
+def test_render_gas(fake_pynbody, fake_render):
+    step = RenderGas(width="30 kpc", resolution=4, center_mode="ssc", render_args={"kernel": "WendlandC2"})
+    step.bind(PynbodyDataset("snap_099"))
+
+    record = step({"subhalo_id": np.int32(3)})
+
+    image = record["gas_image"]
+    assert image.shape == (1, 4, 4)
+    assert image.dtype == np.float32
+    # log10, flipped to top-down rows; pixels without gas are set to the smallest positive value.
+    np.testing.assert_allclose(image[0, -1], 3.0)
+    np.testing.assert_allclose(image[0, :-1], 2.0)
+    assert [call[0] for call in fake_render] == ["center", "image"]
+    _, centered_gas, center_kwargs = fake_render[0]
+    _, rendered_gas, image_kwargs = fake_render[1]
+    assert centered_gas is rendered_gas
+    assert center_kwargs == {"mode": "ssc", "with_velocity": False, "cen_num_particles": 0, "move_all": False}
+    assert image_kwargs == {
+        "qty": "rho",
+        "width": "30 kpc",
+        "resolution": 4,
+        "units": "Msol kpc**-2",
+        "noplot": True,
+        "kernel": "WendlandC2",
+    }
+    np.testing.assert_allclose(rendered_gas["pos"], 2.0)
+
+
+def test_render_gas_linear(fake_pynbody, fake_render):
+    step = RenderGas(resolution=4, center_mode="catalogue", log=False, column="gas")
+    step.bind(PynbodyDataset("snap_099"))
+
+    image = step({"subhalo_id": 3})["gas"]
+    assert [call[0] for call in fake_render] == ["image"]
+    np.testing.assert_allclose(image[0, -1], 1000.0)
+    np.testing.assert_allclose(image[0, -2], 0.0)
+
+
+def test_render_gas_reads_quantity_and_weight(fake_pynbody, fake_render, monkeypatch):
+    dataset = PynbodyDataset("snap_099")
+    requested = []
+    gas = dataset.gas
+    monkeypatch.setattr(dataset, "gas", lambda *args, **kwargs: requested.append(kwargs) or gas(*args, **kwargs))
+    step = RenderGas(resolution=4, qty="temp", units=None, render_args={"weight": "rho"}, orientation="faceon")
+    step.bind(dataset)
+    monkeypatch.setattr(pynbody.analysis, "faceon", lambda halo, **kw: fake_render.append(("faceon", halo, kw)))
+
+    step({"subhalo_id": 3})
+    assert requested == [{"velocities": True, "arrays": ["temp", "rho"]}]
+    assert [call[0] for call in fake_render] == ["center", "faceon", "image"]
+    assert fake_render[1][2] == {"disk_size": "5 kpc", "already_centered": True, "move_all": False}
+    assert fake_render[2][2]["units"] is None
+
+
+@pytest.mark.parametrize("kwargs", [{"center_mode": "pot"}, {"orientation": "edgeon"}])
+def test_render_gas_rejects_unsupported(kwargs):
+    with pytest.raises(ValueError):
+        RenderGas(**kwargs)
+
+
+def test_pipeline_renders_gas(fake_pynbody, fake_render, tmp_path):
+    render = {"class_path": "pest.RenderGas", "init_args": {"resolution": 4}}
+    df = _run_pipeline(tmp_path, [MASS_FILTER, FLAG_FILTER, render])
+
+    assert list(df["subhalo_id"]) == [1, 3]
+    assert np.stack([np.stack(row) for row in df.iloc[0]["gas_image"]]).shape == (1, 4, 4)
+
+
+def test_render_gas_without_gas(fake_pynbody, fake_render, monkeypatch):
+    halo = FakeHalo(0)
+    halo.g = make_gas(np.zeros((0, 3)), np.zeros((0, 3)), np.zeros(0))
+    monkeypatch.setattr(fake_pynbody.fake_halos, "load_copy", lambda subhalo_id: halo)
+    step = RenderGas()
+    step.bind(PynbodyDataset("snap_099"))
+
+    with pytest.raises(ValueError, match="no gas particles"):
+        step({"subhalo_id": 0})
+    assert fake_render == []
+
+
+def test_render_gas_empty_image(fake_pynbody, monkeypatch):
+    monkeypatch.setattr(pynbody.plot, "image", lambda halo, **kwargs: np.zeros((4, 4)))
+    step = RenderGas(center_mode="catalogue")
+    step.bind(PynbodyDataset("snap_099"))
+
+    with pytest.raises(ValueError, match="no positive"):
+        step({"subhalo_id": 3})
+
+
+def test_render_gas_requires_binding():
+    with pytest.raises(RuntimeError):
+        RenderGas()({"subhalo_id": 0})
+
+
+def test_render_gas_requires_gas():
+    with pytest.raises(TypeError):
+        RenderGas().bind(object())
 
 
 # Synthetic TNG snapshot (in 2 files) and SUBFIND catalogue, generated by tests/make_illustris_tng_testdata.py
@@ -451,6 +576,65 @@ def test_tng_render_stars_rho_placeholder():
     # The same stars, rendered with the SPH density computed by pynbody.
     expected = pynbody.plot.stars.render(dataset.stars(0), width=20, resolution=16, noplot=True, return_image=True)
     np.testing.assert_allclose(image, np.moveaxis(expected[::-1], -1, 0), atol=1e-6)
+
+
+@pytest.mark.filterwarnings("ignore")
+@pytest.mark.parametrize("subhalo_id", range(5))
+def test_tng_gas_direct_matches_halo(subhalo_id):
+    dataset = PynbodyDataset(TNG_SNAPSHOT)
+
+    direct = dataset.gas(subhalo_id, velocities=True)
+    dataset.direct_loading = False
+    loaded = dataset.gas(subhalo_id, velocities=True)
+
+    assert len(direct) == len(loaded)
+    for name in ["pos", "vel", "mass", "rho"]:
+        np.testing.assert_array_equal(direct[name], loaded[name])
+        assert direct[name].units == loaded[name].units
+    assert np.all(np.abs(direct["pos"]) < 40.0)  # [kpc]
+
+
+@pytest.mark.filterwarnings("ignore")
+def test_tng_gas_read_directly(monkeypatch):
+    dataset = PynbodyDataset(TNG_SNAPSHOT)
+    monkeypatch.setattr(dataset, "halo", lambda subhalo_id: pytest.fail("gas loaded with pynbody"))
+
+    gas = dataset.gas(0, arrays=["metals"])
+    assert len(gas) == 64
+    assert np.all(gas["rho"] > 0)
+
+
+@pytest.mark.filterwarnings("ignore")
+@pytest.mark.parametrize("center_mode", [None, "catalogue"])
+def test_tng_render_gas_direct_matches_halo(center_mode):
+    dataset = PynbodyDataset(TNG_SNAPSHOT)
+    step = RenderGas(width=30, resolution=16, center_mode=center_mode)
+    step.bind(dataset)
+
+    direct = step(dataset[0])["gas_image"]
+    assert direct.shape == (1, 16, 16)
+    assert np.all(np.isfinite(direct))
+    dataset.direct_loading = False
+    loaded = step({"subhalo_id": 0})["gas_image"]
+    np.testing.assert_allclose(direct, loaded, atol=1e-5)
+
+
+@pytest.mark.filterwarnings("ignore")
+@pytest.mark.parametrize("orientation", ["faceon", "sideon"])
+def test_tng_render_gas_orientation(orientation):
+    dataset = PynbodyDataset(TNG_SNAPSHOT)
+    step = RenderGas(width=30, resolution=16, center_mode="catalogue", orientation=orientation, disk_size="20 kpc")
+    step.bind(dataset)
+
+    image = step({"subhalo_id": 0})["gas_image"]
+    assert image.shape == (1, 16, 16)
+    plain = RenderGas(width=30, resolution=16, center_mode="catalogue")
+    plain.bind(dataset)
+    assert not np.allclose(image, plain({"subhalo_id": 0})["gas_image"])
+
+    # The direct reading of the snapshot gives the same image as loading the halo with pynbody.
+    dataset.direct_loading = False
+    np.testing.assert_allclose(image, step({"subhalo_id": 0})["gas_image"], atol=1e-5)
 
 
 @pytest.mark.filterwarnings("ignore")

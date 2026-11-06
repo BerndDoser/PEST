@@ -9,9 +9,10 @@ reads them with ArepoHDFSnap and TNGSubfindHDFCatalogue:
 Contents (code units: ckpc/h, 1e10 Msun/h, km/s * sqrt(a)):
 
 - 2 FoF groups with 5 subhalos: group 0 holds subhalos 0, 1, 2, group 1 holds 3, 4.
-- Gas (PartType0), dark matter (PartType1, mass from the MassTable) and stars (PartType4).
-- Subhalo 0 has 64 star particles, enough for pynbody's SPH smoothing (32 neighbours) in RenderStars.
-  3 of them are wind particles, with a negative GFM_StellarFormationTime as in TNG.
+- Gas (PartType0, with Density), dark matter (PartType1, mass from the MassTable) and stars (PartType4).
+- Subhalo 0 has 64 gas and 64 star particles, enough for pynbody's SPH smoothing (32 neighbours) in
+  RenderGas and RenderStars.
+  3 of the stars are wind particles, with a negative GFM_StellarFormationTime as in TNG.
 - Subhalo 2 is dark (no gas, no stars).
 - Subhalo 3 crosses the periodic box boundary in x.
 - Subhalo 4 has SubhaloFlag = 0.
@@ -54,7 +55,7 @@ SUBHALOS = [
         "group": 0,
         "pos": [10000.0, 12000.0, 8000.0],
         "vel": [100.0, -50.0, 20.0],
-        "npart": [20, 40, 64],
+        "npart": [64, 40, 64],
         "mass": [1.0e-4, 1.0e-1],
         "sfr": 2.5,
         "flag": 1,
@@ -118,6 +119,7 @@ POS_UNITS = unit_attrs(length=1.0, a=1.0, h=-1.0, to_cgs=UNIT_LENGTH)
 VEL_UNITS = unit_attrs(velocity=1.0, a=0.5, to_cgs=UNIT_VELOCITY)
 MASS_UNITS = unit_attrs(mass=1.0, h=-1.0, to_cgs=UNIT_MASS)
 SFR_UNITS = unit_attrs(mass=1.0, length=-1.0, velocity=1.0, to_cgs=1.989e33 / 3.15576e7)  # Msun/yr
+DENSITY_UNITS = unit_attrs(mass=1.0, length=-3.0, a=-3.0, h=2.0, to_cgs=UNIT_MASS / UNIT_LENGTH**3)
 NO_UNITS = unit_attrs()
 
 
@@ -189,6 +191,8 @@ def snapshot_datasets(particles, rng) -> dict:
         if ptype != 1:  # dark matter masses are in the MassTable
             data["Masses"] = (fields["mass"], MASS_UNITS)
             data["GFM_Metallicity"] = (rng.uniform(0.005, 0.03, n).astype(np.float32), NO_UNITS)
+        if ptype == 0:
+            data["Density"] = (rng.uniform(1e-4, 1e-2, n).astype(np.float32), DENSITY_UNITS)
         if ptype == 4:
             formation_time = rng.uniform(0.2, 0.99, n).astype(np.float32)
             formation_time[WIND_STARS] *= -1
