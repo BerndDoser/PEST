@@ -38,10 +38,15 @@ class PynbodyDataset:
     using `particles()`, and stellar images by a `pest.RenderStars` step, using
     `stars()`.
 
+    `snapshot_path` can also be a list of snapshots (see `MultiSnapshotDataset`),
+    whose catalogues are concatenated into one dataset.
+
     Args:
-        snapshot_path (str): Path to the snapshot, e.g. `.../snapshot_099/snap_099`.
-        halos_path (str | None): Path to the halo catalogue. If `None`, pynbody
-            locates it next to the snapshot.
+        snapshot_path (str | list[str]): Path to the snapshot, e.g.
+            `.../snapshot_099/snap_099`, or a list of such paths.
+        halos_path (str | list[str] | None): Path to the halo catalogue, a list
+            with one path per snapshot. If `None`, pynbody locates it next to
+            the snapshot.
         columns (list[str] | None): Columns to extract: "subhalo_id", "snapshot",
             or any halo catalogue property (e.g. "SubhaloSFR"). Which properties
             exist depends on the catalogue format; some (e.g. EAGLE, AdaptaHOP)
@@ -51,10 +56,15 @@ class PynbodyDataset:
             `{"priority": ["AHFCatalogue"]}`.
     """
 
+    def __new__(cls, snapshot_path, *args, **kwargs):
+        if cls is PynbodyDataset and not isinstance(snapshot_path, str | Path):
+            return super().__new__(MultiSnapshotDataset)
+        return super().__new__(cls)
+
     def __init__(
         self,
-        snapshot_path: str,
-        halos_path: str | None = None,
+        snapshot_path: str | list[str],
+        halos_path: str | list[str] | None = None,
         columns: list[str] | None = None,
         halos_args: dict | None = None,
     ) -> None:
@@ -294,3 +304,78 @@ class PynbodyDataset:
         if boxsize is None or units is None:
             return None
         return float(boxsize.in_units(units, **self.snapshot.conversion_context()))
+
+
+class MultiSnapshotDataset(PynbodyDataset):
+    """Concatenation of the `PynbodyDataset`s of several snapshots, created by `PynbodyDataset(list_of_paths)`.
+
+    The records of the snapshots follow each other in the order of the list.
+    Subhalo ids are only unique within a snapshot, so the particle methods
+    (`particles()`, `stars()`, `halo()`) refer to the snapshot of the record
+    extracted last with `__getitem__`, as the transform steps run on one record
+    at a time. Add the "snapshot" column to tell the records apart in the output.
+    """
+
+    def __init__(
+        self,
+        snapshot_path: list[str],
+        halos_path: list[str] | None = None,
+        columns: list[str] | None = None,
+        halos_args: dict | None = None,
+    ) -> None:
+        paths = [str(path) for path in snapshot_path]
+        if not paths:
+            raise ValueError("snapshot_path must contain at least one snapshot.")
+        if halos_path is None:
+            halos_paths = [None] * len(paths)
+        elif isinstance(halos_path, str | Path) or len(halos_path) != len(paths):
+            raise ValueError("halos_path must be a list with one path per snapshot.")
+        else:
+            halos_paths = list(halos_path)
+        self.datasets = [
+            PynbodyDataset(path, halos_path=halos, columns=columns, halos_args=halos_args)
+            for path, halos in zip(paths, halos_paths)
+        ]
+        self.columns = self.datasets[0].columns
+        self.offsets = np.cumsum([0] + [len(dataset) for dataset in self.datasets])
+        self._current = self.datasets[0]
+        self._table: dict | None = None
+
+    def __len__(self) -> int:
+        return int(self.offsets[-1])
+
+    def table(self) -> dict:
+        """Halo catalogue properties of all subhalos of all snapshots, indexed like the records.
+
+        Only properties that all catalogues provide are included.
+        """
+        if self._table is None:
+            tables = [dataset.table() for dataset in self.datasets]
+            keys = [key for key in tables[0] if all(key in table for table in tables)]
+            self._table = {key: self._concatenate([table[key] for table in tables]) for key in keys}
+        return self._table
+
+    @staticmethod
+    def _concatenate(arrays: list):
+        units = getattr(arrays[0], "units", None)
+        if units is None or type(units).__name__ == "NoUnit" or not hasattr(arrays[0], "in_units"):
+            return np.concatenate([np.asarray(array) for array in arrays])
+        return SimArray(np.concatenate([in_units(array, units) for array in arrays]), units)
+
+    def __getitem__(self, index: int) -> dict:
+        index = int(index)
+        if not -len(self) <= index < len(self):
+            raise IndexError(f"index {index} is out of range for a dataset of length {len(self)}")
+        index %= len(self)
+        number = int(np.searchsorted(self.offsets, index, side="right")) - 1
+        self._current = self.datasets[number]
+        return self._current[index - int(self.offsets[number])]
+
+    def halo(self, subhalo_id: int | np.integer):
+        return self._current.halo(subhalo_id)
+
+    def particles(self, subhalo_id: int, component: str, fields: list[str]) -> dict[str, np.ndarray]:
+        return self._current.particles(subhalo_id, component, fields)
+
+    def stars(self, subhalo_id: int | np.integer, velocities: bool = False):
+        return self._current.stars(subhalo_id, velocities=velocities)

@@ -227,6 +227,9 @@ Build a dataset of particle arrays, e.g. the positions, velocities and masses of
 particles, for each subhalo of a simulation snapshot that [pynbody](https://pynbody.readthedocs.io/)
 can read, such as IllustrisTNG, EAGLE or AHF.
 
+`snapshot_path` can also be a list of snapshots, e.g. to combine several redshifts: their halo
+catalogues are concatenated, and the `snapshot` column tells the records apart.
+
 This pipeline selects TNG50 subhalos by stellar mass and `SubhaloFlag` and loads the positions,
 velocities and masses of their star particles:
 

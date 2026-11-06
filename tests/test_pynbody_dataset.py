@@ -496,3 +496,15 @@ def test_tng_particles_derived_field(monkeypatch):
     ages = dataset.particles(0, "stars", ["mass", "age"])["age"]
     assert loaded == [0]
     assert np.isnan(ages).sum() == 3  # the wind particles
+
+
+def test_dataset_with_list_of_snapshots(fake_pynbody):
+    dataset = PynbodyDataset(["TNG50-1/snapshot_099/snap_099", "TNG50-1/snapshot_098/snap_098"])
+    assert len(dataset) == 10
+    dataset = PynbodyDataset(
+        ["TNG50-1/snapshot_099/snap_099", "TNG50-1/snapshot_098/snap_098"], columns=["subhalo_id", "snapshot"]
+    )
+    assert dataset[3] == {"subhalo_id": 3, "snapshot": 99}
+    assert dataset[8] == {"subhalo_id": 3, "snapshot": 98}
+    assert len(dataset.table()["SubhaloSFR"]) == 10
+    assert dataset.particles(3, "stars", ["pos"])["pos"].shape[1] == 3
