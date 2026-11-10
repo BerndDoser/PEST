@@ -1,5 +1,6 @@
 import warnings
 from collections.abc import Iterable
+from pathlib import Path
 
 import numpy as np
 import pyarrow as pa
@@ -50,6 +51,7 @@ class ParquetWriter:
         self.chunk_size = chunk_size
 
     def __call__(self, records: Iterable[dict]) -> None:
+        Path(self.output_path).parent.mkdir(parents=True, exist_ok=True)
         writer = None
         batch: list[dict] = []
         chunk_size = self.chunk_size or float("inf")

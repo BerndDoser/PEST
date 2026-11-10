@@ -4,19 +4,46 @@ from pathlib import Path
 import numpy as np
 import pynbody
 from pynbody.array import SimArray
+from pynbody.halo.subfindhdf import TNGSubfindHDFCatalogue
 from pynbody.snapshot.gadgethdf import ArepoHDFSnap
 
-from .units import in_units
+from .units import has_units, in_units, physical_units
 
 COMPONENTS = {"stars": "st", "gas": "g", "dm": "dm"}
-# pynbody tries the generic Arepo catalogue first, which reads the wrong multi-file header for TNG.
-TNG_CATALOGUE = ["TNGSubfindHDFCatalogue"]
+# pynbody tries the generic Arepo catalogue first, which reads the wrong multi-file header for TNG, and does not
+# find the Illustris catalogue files (see `IllustrisSubfindHDFCatalogue`).
+SUBFIND_CATALOGUES = ["TNGSubfindHDFCatalogue", "IllustrisSubfindHDFCatalogue"]
 DEFAULT_COLUMNS = ["subhalo_id"]
 PARTICLE_FIELDS = {"pos", "vel", "mass"}
 # Catalogue properties holding the (position, velocity) of the subhalo center, per catalogue format.
 CENTER_PROPERTIES = [("SubhaloPos", "SubhaloVel"), ("sub_pos", "sub_vel")]
 # Star arrays that `stars()` provides for rendering.
 STAR_ARRAYS = ["pos", "mass", "aform", "metals"]
+# Gas arrays that `gas()` provides for rendering.
+GAS_ARRAYS = ["pos", "mass", "rho"]
+
+
+class IllustrisSubfindHDFCatalogue(TNGSubfindHDFCatalogue):
+    """SUBFIND catalogue of the original Illustris simulations (e.g. Illustris-1).
+
+    It has the HDF5 format of IllustrisTNG, but its files are named
+    `groups_XXX/groups_XXX.N.hdf5` instead of `groups_XXX/fof_subhalo_tab_XXX.N.hdf5`.
+    pynbody does not find them, and falls back to its reader of binary SUBFIND
+    catalogues, which fails to open `groups_XXX/subhalo_tab_XXX.0`. A catalogue
+    path passed by the user is the file name without the `.N.hdf5` suffix,
+    e.g. `.../groups_135/groups_135`.
+    """
+
+    @classmethod
+    def _catalogue_filename(cls, sim, user_provided_filename=None, namestem="groups_"):
+        # `namestem` is "groups_" for the catalogue, or "subhalo_prog_"/"subhalo_desc_" for merger tree files, which
+        # Illustris does not have next to the catalogue.
+        if user_provided_filename is None:
+            return super()._catalogue_filename(sim, None, namestem)
+        path = Path(user_provided_filename)
+        if not path.name.startswith("groups_"):
+            raise ValueError("Filename must start with 'groups_'")
+        return str(path.with_name(namestem + path.name.removeprefix("groups_")))
 
 
 class PynbodyDataset:
@@ -33,13 +60,18 @@ class PynbodyDataset:
     of subhalos (e.g. a mass range) is done with filters in the transform stage,
     which can use `table()` to drop subhalos before any record is extracted.
     Particle data is added afterwards by a `pest.LoadParticles` transform step,
-    using `particles()`, and stellar images by a `pest.RenderStars` step, using
-    `stars()`.
+    using `particles()`, stellar images by a `pest.RenderStars` step, using
+    `stars()`, and gas images by a `pest.RenderGas` step, using `gas()`.
+
+    `snapshot_path` can also be a list of snapshots (see `MultiSnapshotDataset`),
+    whose catalogues are concatenated into one dataset.
 
     Args:
-        snapshot_path (str): Path to the snapshot, e.g. `.../snapshot_099/snap_099`.
-        halos_path (str | None): Path to the halo catalogue. If `None`, pynbody
-            locates it next to the snapshot.
+        snapshot_path (str | list[str]): Path to the snapshot, e.g.
+            `.../snapshot_099/snap_099`, or a list of such paths.
+        halos_path (str | list[str] | None): Path to the halo catalogue, a list
+            with one path per snapshot. If `None`, pynbody locates it next to
+            the snapshot.
         columns (list[str] | None): Columns to extract: "subhalo_id", "snapshot",
             or any halo catalogue property (e.g. "SubhaloSFR"). Which properties
             exist depends on the catalogue format; some (e.g. EAGLE, AdaptaHOP)
@@ -49,10 +81,15 @@ class PynbodyDataset:
             `{"priority": ["AHFCatalogue"]}`.
     """
 
+    def __new__(cls, snapshot_path, *args, **kwargs):
+        if cls is PynbodyDataset and not isinstance(snapshot_path, str | Path):
+            return super().__new__(MultiSnapshotDataset)
+        return super().__new__(cls)
+
     def __init__(
         self,
-        snapshot_path: str,
-        halos_path: str | None = None,
+        snapshot_path: str | list[str],
+        halos_path: str | list[str] | None = None,
         columns: list[str] | None = None,
         halos_args: dict | None = None,
     ) -> None:
@@ -93,7 +130,7 @@ class PynbodyDataset:
         if halos_args is not None:
             return self.snapshot.halos(**kwargs, **halos_args)
         try:
-            return self.snapshot.halos(subhalos=True, priority=TNG_CATALOGUE, **kwargs)
+            return self.snapshot.halos(subhalos=True, priority=SUBFIND_CATALOGUES, **kwargs)
         except (TypeError, RuntimeError):
             # Catalogues without a flat list of subhalos (e.g. EAGLE, AHF, AdaptaHOP) reject `subhalos`.
             return self.snapshot.halos(**kwargs)
@@ -157,7 +194,7 @@ class PynbodyDataset:
             particles = getattr(halo, COMPONENTS[component])
         return {field: self._particle_field(particles, field, subhalo_id) for field in fields}
 
-    def stars(self, subhalo_id: int | np.integer):
+    def stars(self, subhalo_id: int | np.integer, velocities: bool = False):
         """A pynbody snapshot of the star particles of one subhalo, e.g. for rendering.
 
         Positions are in kpc relative to the subhalo center, which is taken from
@@ -166,17 +203,45 @@ class PynbodyDataset:
         snapshots, only the arrays needed for rendering ("pos", "mass", "aform",
         "metals") are read (see `_read_particles()`). Wind particles, which TNG
         stores with the stars, are kept as pynbody keeps them: they have no age
-        and emit no light. Other formats use the stars of `halo()`.
+        and emit no light. Other formats use the stars of `halo()`. With
+        `velocities`, the star velocities relative to the subhalo center are
+        provided as well, e.g. to orient the galaxy by its angular momentum.
         """
+        return self._component_snapshot(subhalo_id, "stars", STAR_ARRAYS, velocities)
+
+    def gas(self, subhalo_id: int | np.integer, velocities: bool = False, arrays: list[str] | tuple = ()):
+        """A pynbody snapshot of the gas particles of one subhalo, e.g. for rendering.
+
+        Positions are in kpc relative to the subhalo center, as for `stars()`.
+        For IllustrisTNG-like snapshots, only the arrays needed for rendering
+        ("pos", "mass", "rho") and the additional `arrays` (e.g. the rendered
+        quantity) are read (see `_read_particles()`). If any of them is not
+        stored in the snapshot files, e.g. derived arrays like "temp", the gas
+        of `halo()` is used instead, where pynbody derives them. With
+        `velocities`, the gas velocities relative to the subhalo center are
+        provided as well, e.g. to orient the galaxy by its angular momentum.
+        """
+        return self._component_snapshot(subhalo_id, "gas", [*GAS_ARRAYS, *arrays], velocities)
+
+    def _component_snapshot(self, subhalo_id: int | np.integer, component: str, arrays: list[str], velocities: bool):
+        """The `component` particles of one subhalo with `arrays`, positioned relative to the subhalo center."""
         subhalo_id = int(subhalo_id)
-        stars = self._read_particles(subhalo_id, pynbody.family.star, STAR_ARRAYS)
-        if stars is None:
-            stars = self.halo(subhalo_id).st
+        family_name = COMPONENTS[component]
+        # Each array once, as the additional ones may repeat the default ones. The velocities are needed to orient
+        # the galaxy by its angular momentum.
+        arrays = list(dict.fromkeys([*arrays, "vel"] if velocities else arrays))
+        particles = self._read_particles(subhalo_id, pynbody.family.get_family(family_name), arrays)
+        if particles is None:
+            particles = getattr(self.halo(subhalo_id), family_name)
         if self.center_properties is not None:
-            stars["pos"] = self._relative_to_center(stars["pos"], "pos", subhalo_id)
-        elif len(stars):
-            pynbody.analysis.center(stars, with_velocity=False, cen_num_particles=0, move_all=False)
-        return stars
+            particles["pos"] = self._relative_to_center(particles["pos"], "pos", subhalo_id)
+            if velocities:
+                particles["vel"] = self._relative_to_center(particles["vel"], "vel", subhalo_id)
+        elif len(particles):
+            pynbody.analysis.center(
+                particles, with_velocity=velocities, cen_num_particles=None if velocities else 0, move_all=False
+            )
+        return particles
 
     def _read_particles(self, subhalo_id: int, family, names: list[str]):
         """Arrays `names` of the `family` particles of one subhalo, read directly from the snapshot files.
@@ -285,3 +350,85 @@ class PynbodyDataset:
         if boxsize is None or units is None:
             return None
         return float(boxsize.in_units(units, **self.snapshot.conversion_context()))
+
+
+class MultiSnapshotDataset(PynbodyDataset):
+    """Concatenation of the `PynbodyDataset`s of several snapshots, created by `PynbodyDataset(list_of_paths)`.
+
+    The records of the snapshots follow each other in the order of the list.
+    Subhalo ids are only unique within a snapshot, so the particle methods
+    (`particles()`, `stars()`, `gas()`, `halo()`) refer to the snapshot of the record
+    extracted last with `__getitem__`, as the transform steps run on one record
+    at a time. Add the "snapshot" column to tell the records apart in the output.
+    """
+
+    def __init__(
+        self,
+        snapshot_path: list[str],
+        halos_path: list[str] | None = None,
+        columns: list[str] | None = None,
+        halos_args: dict | None = None,
+    ) -> None:
+        paths = [str(path) for path in snapshot_path]
+        if not paths:
+            raise ValueError("snapshot_path must contain at least one snapshot.")
+        if halos_path is None:
+            halos_paths = [None] * len(paths)
+        elif isinstance(halos_path, str | Path) or len(halos_path) != len(paths):
+            raise ValueError("halos_path must be a list with one path per snapshot.")
+        else:
+            halos_paths = list(halos_path)
+        self.datasets = [
+            PynbodyDataset(path, halos_path=halos, columns=columns, halos_args=halos_args)
+            for path, halos in zip(paths, halos_paths)
+        ]
+        self.columns = self.datasets[0].columns
+        self.offsets = np.cumsum([0] + [len(dataset) for dataset in self.datasets])
+        self._current = self.datasets[0]
+        self._table: dict | None = None
+
+    def __len__(self) -> int:
+        return int(self.offsets[-1])
+
+    def table(self) -> dict:
+        """Halo catalogue properties of all subhalos of all snapshots, indexed like the records.
+
+        Only properties that all catalogues provide are included.
+        """
+        if self._table is None:
+            tables = [dataset.table() for dataset in self.datasets]
+            keys = [key for key in tables[0] if all(key in table for table in tables)]
+            self._table = {key: self._concatenate([table[key] for table in tables]) for key in keys}
+        return self._table
+
+    @staticmethod
+    def _concatenate(arrays: list):
+        # The concatenated array belongs to no simulation, so units depending on the scale factor `a` or on `h`
+        # could not be converted any more, and `a` differs between the snapshots. Each array is converted to
+        # physical units with the cosmology of its own snapshot first.
+        arrays = [physical_units(array) for array in arrays]
+        if not has_units(arrays[0]):
+            return np.concatenate([np.asarray(array) for array in arrays])
+        units = arrays[0].units
+        return SimArray(np.concatenate([in_units(array, units) for array in arrays]), units)
+
+    def __getitem__(self, index: int) -> dict:
+        index = int(index)
+        if not -len(self) <= index < len(self):
+            raise IndexError(f"index {index} is out of range for a dataset of length {len(self)}")
+        index %= len(self)
+        number = int(np.searchsorted(self.offsets, index, side="right")) - 1
+        self._current = self.datasets[number]
+        return self._current[index - int(self.offsets[number])]
+
+    def halo(self, subhalo_id: int | np.integer):
+        return self._current.halo(subhalo_id)
+
+    def particles(self, subhalo_id: int, component: str, fields: list[str]) -> dict[str, np.ndarray]:
+        return self._current.particles(subhalo_id, component, fields)
+
+    def stars(self, subhalo_id: int | np.integer, velocities: bool = False):
+        return self._current.stars(subhalo_id, velocities=velocities)
+
+    def gas(self, subhalo_id: int | np.integer, velocities: bool = False, arrays: list[str] | tuple = ()):
+        return self._current.gas(subhalo_id, velocities=velocities, arrays=arrays)
