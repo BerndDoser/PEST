@@ -1,6 +1,25 @@
 import numpy as np
+import pynbody
 
 from .units import in_units
+
+
+def parse_limit(limit: float | str) -> tuple[float, str | None]:
+    """Split a limit into a value and its units.
+
+    A number with units, e.g. "1.0e10 Msol", gives `(1e10, "Msol")`, and the units may contain spaces, e.g.
+    "1e7 Msol kpc**-2". Numbers and numeric strings, e.g. 1 or "1.0e10" as config files may deliver them, have no
+    units.
+    """
+    if isinstance(limit, str):
+        value, _, units = limit.strip().partition(" ")
+        try:
+            return float(value), (units.strip() or None)
+        except ValueError:
+            raise ValueError(
+                f"A limit must be a number or a number with units, e.g. '1e10 Msol', got {limit!r}."
+            ) from None
+    return float(limit), None
 
 
 class FilterRange:
@@ -12,12 +31,16 @@ class FilterRange:
 
     Args:
         column (str): Name of the column to filter on, e.g. "SubhaloMassType".
-        min (float): Lower limit (default -inf).
-        max (float): Upper limit (default inf).
+        min (float | str): Lower limit (default -inf), as a float in `units`
+            or a unit string, e.g. "1.0e10 Msol".
+        max (float | str): Upper limit (default inf), as a float in `units`
+            or a unit string, e.g. "5.0e10 Msol".
         index (int | None): Index into the last axis of a multi-valued column,
             e.g. `4` for the stellar mass in `SubhaloMassType`.
         units (str | None): Convert unit-carrying values (pynbody `SimArray`)
-            to these units before comparing, e.g. "Msol".
+            to these units before comparing, e.g. "Msol". Limits with units
+            are converted to them as well. If `None`, the units of the limits
+            are used. Values without units are compared unchanged.
         inclusive (bool): Whether the limits themselves are kept (default True).
     """
 
@@ -26,19 +49,26 @@ class FilterRange:
     def __init__(
         self,
         column: str,
-        min: float = -np.inf,
-        max: float = np.inf,
+        min: float | str = -np.inf,
+        max: float | str = np.inf,
         index: int | None = None,
         units: str | None = None,
         inclusive: bool = True,
     ):
         self.column = column
-        # Convert explicitly: config files may deliver numbers as strings, e.g. "1.0e10".
-        self.min = float(min)
-        self.max = float(max)
+        (min_value, min_units), (max_value, max_units) = parse_limit(min), parse_limit(max)
+        # Plain limits are in `units`, which default to the units of the limits.
+        self.units = units or min_units or max_units
+        self.min = self._in_units(min_value, min_units)
+        self.max = self._in_units(max_value, max_units)
         self.index = index
-        self.units = units
         self.inclusive = inclusive
+
+    def _in_units(self, value: float, units: str | None) -> float:
+        """A limit of `value` in `units` converted to the units of the filter."""
+        # The ratio also checks the units of an infinite limit.
+        ratio = 1.0 if units is None else pynbody.units.Unit(units).ratio(self.units)
+        return value if np.isinf(value) else value * ratio
 
     def mask(self, table: dict) -> np.ndarray:
         values = in_units(table[self.column], self.units)

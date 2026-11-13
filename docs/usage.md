@@ -86,8 +86,9 @@ The `transform` list accepts two kinds of entries:
   updated record (e.g. to add new columns).
 
 `FilterRange` keeps records whose `column` (optionally `[..., index]`, converted to `units`) lies
-within `[min, max]`. It works on any numeric column, per record or vectorized on the whole table
-(see below). The other transformations are described with the data they work on:
+within `[min, max]`. The limits can carry units like the `width` of `RenderStars`, e.g.
+`min: 1.0e10 Msol`; the column is then converted to these units. It works on any numeric column,
+per record or vectorized on the whole table (see below). The other transformations are described with the data they work on:
 {ref}`image transforms <usage-skirt-transforms>`, {ref}`LoadParticles <usage-load-particles>`,
 {ref}`RenderStars <usage-render-options>` and {ref}`RenderGas <usage-render-gas-options>`.
 
@@ -254,9 +255,8 @@ transform:
     init_args:
       column: SubhaloMassType
       index: 4
-      min: 5.0e+10 # [Msun]
-      max: 5.2e+10 # [Msun]
-      units: Msol
+      min: 5.0e10 Msol
+      max: 5.2e10 Msol
   - class_path: pest.FilterRange # SubhaloFlag == 1
     init_args:
       column: SubhaloFlag
@@ -337,9 +337,8 @@ transform:
     init_args:
       column: SubhaloMassType
       index: 4
-      min: 5.0e+10 # [Msun]
-      max: 5.2e+10 # [Msun]
-      units: Msol
+      min: 5.0e10 Msol
+      max: 5.2e10 Msol
   - class_path: pest.FilterRange # SubhaloFlag == 1
     init_args:
       column: SubhaloFlag
