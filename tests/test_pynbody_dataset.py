@@ -85,11 +85,20 @@ class FakeHalos:
         self.accessed.append(subhalo_id)
         return FakeHalo(subhalo_id)
 
+    def _get_all_particle_indices_cached(self):
+        raise NotImplementedError("This halo catalogue does not support loading all halos at once")
+
 
 class FakeSnapshot:
     def __init__(self):
         self.fake_halos = FakeHalos()
         self.properties = {}
+        # As for IllustrisTNG, the particle types of the families in a Gadget/Arepo HDF5 snapshot.
+        self._family_to_group_map = {
+            pynbody.family.gas: ["PartType0"],
+            pynbody.family.dm: ["PartType1"],
+            pynbody.family.star: ["PartType4"],
+        }
 
     def physical_units(self):
         pass
@@ -245,6 +254,57 @@ def test_mass_filter_converts_units(fake_pynbody, monkeypatch):
 
     mask = FilterRange("SubhaloMassType", index=4, min=1e9, max=1e11, units="Msol").mask(dataset.table())
     assert list(np.flatnonzero(mask)) == [1, 2, 3]
+
+
+def test_stars_mass_column(fake_pynbody):
+    dataset = PynbodyDataset("snap_099", columns=["subhalo_id", "stars_mass"])
+
+    np.testing.assert_array_equal(dataset.table()["stars_mass"], STELLAR_MASS)
+    np.testing.assert_array_equal(dataset.table()["gas_mass"], np.zeros(len(STELLAR_MASS)))
+    mask = FilterRange("stars_mass", min=1e9, max=1e11).mask(dataset.table())
+    assert list(np.flatnonzero(mask)) == [1, 2, 3]
+    assert dataset[2] == {"subhalo_id": 2, "stars_mass": 2e10}
+
+
+def test_stars_mass_column_converts_units(fake_pynbody, monkeypatch):
+    properties = fake_pynbody.fake_halos.get_properties_all_halos()
+    properties["SubhaloMassType"] = pynbody.array.SimArray(properties["SubhaloMassType"] / 1e10, "1e10 Msol")
+    monkeypatch.setattr(fake_pynbody.fake_halos, "get_properties_all_halos", lambda: properties)
+    dataset = PynbodyDataset("snap_099")
+
+    mask = FilterRange("stars_mass", min="1e9 Msol", max="1e11 Msol").mask(dataset.table())
+    assert list(np.flatnonzero(mask)) == [1, 2, 3]
+
+
+def test_stars_mass_column_with_other_particle_type(fake_pynbody):
+    # Stars stored as another particle type than PartType4.
+    fake_pynbody._family_to_group_map[pynbody.family.star] = ["PartType0"]
+    dataset = PynbodyDataset("snap_099")
+
+    np.testing.assert_array_equal(dataset.table()["stars_mass"], np.zeros(len(STELLAR_MASS)))
+
+
+def test_mass_column_without_masses(fake_pynbody, monkeypatch):
+    # A catalogue without mass per particle type that cannot list the particles of its halos.
+    properties = fake_pynbody.fake_halos.get_properties_all_halos()
+    del properties["SubhaloMassType"]
+    monkeypatch.setattr(fake_pynbody.fake_halos, "get_properties_all_halos", lambda: properties)
+    dataset = PynbodyDataset("snap_099")
+
+    with pytest.raises(ValueError, match="mass of a component is not available"):
+        dataset.table()["stars_mass"]
+    with pytest.raises(KeyError):
+        dataset.table()["unknown"]
+    with pytest.raises(ValueError, match="component must be one of"):
+        dataset.component_mass("dust")
+
+
+def test_pipeline_stars_mass_filter(fake_pynbody, tmp_path):
+    stars_mass_filter = {"class_path": "pest.FilterRange", "init_args": {"column": "stars_mass", "min": "1e9 Msol"}}
+    df = _run_pipeline(tmp_path, [stars_mass_filter, FLAG_FILTER], columns=("subhalo_id", "stars_mass"))
+
+    assert list(df["subhalo_id"]) == [1, 3, 4]
+    np.testing.assert_array_equal(df["stars_mass"], STELLAR_MASS[[1, 3, 4]])
 
 
 def test_pipeline_loads_particles_only_for_selected(fake_pynbody, tmp_path):
@@ -1040,3 +1100,36 @@ def test_tng_table_of_list_of_snapshots_in_physical_units():
     mask = FilterRange(column="SubhaloMassType", index=4, min=1e9, units="Msol").mask(table)
     single_mask = FilterRange(column="SubhaloMassType", index=4, min=1e9, units="Msol").mask(single)
     assert list(mask) == list(single_mask) * 2
+    stars_mass = single["stars_mass"]
+    np.testing.assert_allclose(table["stars_mass"].in_units("Msol"), np.concatenate([stars_mass, stars_mass]))
+    assert list(FilterRange(column="stars_mass", min="1e9 Msol").mask(table)) == list(single_mask) * 2
+
+
+# Particle types of the components in the IllustrisTNG snapshot
+TNG_PARTICLE_TYPES = {"gas": 0, "dm": 1, "stars": 4}
+
+
+@pytest.mark.filterwarnings("ignore")
+@pytest.mark.parametrize("component", ["stars", "gas", "dm"])
+def test_tng_component_mass(component):
+    dataset = PynbodyDataset(TNG_SNAPSHOT, columns=["subhalo_id", f"{component}_mass"])
+    mass_type = dataset.properties["SubhaloMassType"].in_units("Msol")[:, TNG_PARTICLE_TYPES[component]]
+
+    mass = dataset.table()[f"{component}_mass"]
+    assert mass.units == pynbody.units.Unit("Msol")
+    np.testing.assert_allclose(mass, mass_type, rtol=1e-6)
+    np.testing.assert_allclose(dataset[3][f"{component}_mass"], mass_type[3], rtol=1e-6)
+    # The masses summed over the particles of each subhalo, as for catalogues without SubhaloMassType.
+    family = pynbody.family.get_family(pest.pynbody_dataset.COMPONENTS[component])
+    np.testing.assert_allclose(dataset._summed_particle_masses(family), mass_type, rtol=1e-6)
+
+
+@pytest.mark.filterwarnings("ignore")
+def test_tng_stars_mass_without_mass_type():
+    dataset = PynbodyDataset(TNG_SNAPSHOT)
+    expected = dataset.properties["SubhaloMassType"].in_units("Msol")[:, 4]
+    del dataset.properties["SubhaloMassType"]
+
+    np.testing.assert_allclose(dataset.table()["stars_mass"], expected, rtol=1e-6)
+    mask = FilterRange("stars_mass", min="2e9 Msol").mask(dataset.table())
+    assert list(np.flatnonzero(mask)) == [0, 3]

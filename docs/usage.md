@@ -253,8 +253,7 @@ extract:
 transform:
   - class_path: pest.FilterRange # stellar mass
     init_args:
-      column: SubhaloMassType
-      index: 4
+      column: stars_mass
       min: 5.0e10 Msol
       max: 5.2e10 Msol
   - class_path: pest.FilterRange # SubhaloFlag == 1
@@ -285,11 +284,20 @@ catalogues (IllustrisTNG, Arepo, Gadget) are loaded as flat subhalo catalogues, 
 explicitly, e.g. `{priority: [AHFCatalogue]}`.
 
 The `columns` argument accepts `subhalo_id` (pynbody's halo number, e.g. starting at 1 for
-EAGLE), `snapshot` and any catalogue property (e.g. `SubhaloSFR`). Which properties exist
-depends on the catalogue format; EAGLE and AdaptaHOP catalogues provide none, so there is
-nothing to filter on before extraction. Subhalo selection (mass range, `SubhaloFlag`, ...)
-is done with filters in the transform stage, and particle arrays are added by a
-`LoadParticles` transform step (see below), so they are only read for selected subhalos.
+EAGLE), `snapshot`, `simulation`, the component masses `stars_mass`, `gas_mass` and `dm_mass`
+and any catalogue property (e.g. `SubhaloSFR`). Which properties exist depends on the
+catalogue format; EAGLE and AdaptaHOP catalogues provide none.
+
+The component masses (in Msol) are available for every catalogue, so a mass selection like
+`FilterRange` on `stars_mass` works for any simulation. They are taken from the mass per
+particle type of SUBFIND HDF catalogues (`SubhaloMassType`, `GroupMassType` or `MassType`,
+using the particle types of the component in the snapshot, e.g. `PartType4` for stars).
+For other catalogues, they are the summed masses of the particles that the catalogue assigns
+to each halo, which reads the masses of all particles of that component once.
+
+Subhalo selection (mass range, `SubhaloFlag`, ...) is done with filters in the transform
+stage, and particle arrays are added by a `LoadParticles` transform step (see below), so they
+are only read for selected subhalos.
 
 (usage-load-particles)=
 ### Loading particles
@@ -335,8 +343,7 @@ extract:
 transform:
   - class_path: pest.FilterRange # stellar mass
     init_args:
-      column: SubhaloMassType
-      index: 4
+      column: stars_mass
       min: 5.0e10 Msol
       max: 5.2e10 Msol
   - class_path: pest.FilterRange # SubhaloFlag == 1

@@ -25,6 +25,29 @@ CENTER_PROPERTIES = [("SubhaloPos", "SubhaloVel"), ("sub_pos", "sub_vel")]
 STAR_ARRAYS = ["pos", "mass", "aform", "metals"]
 # Gas arrays that `gas()` provides for rendering.
 GAS_ARRAYS = ["pos", "mass", "rho"]
+# Columns holding the total mass of a component per halo, see `PynbodyDataset.component_mass()`.
+MASS_COLUMNS = {f"{component}_mass": component for component in COMPONENTS}
+# Catalogue properties holding the mass per Gadget/Arepo particle type (one column per type) of SUBFIND HDF
+# catalogues: subhalos of Gadget-4, Arepo and IllustrisTNG, their FoF groups, and Gadget-3 (e.g. EAGLE).
+MASS_TYPE_PROPERTIES = ["SubhaloMassType", "GroupMassType", "MassType"]
+PARTICLE_TYPE = re.compile(r"PartType(\d+)")
+
+
+class _Table(dict):
+    """Halo catalogue properties, with the `MASS_COLUMNS` computed on first access by `compute(column)`.
+
+    Only the mass column a filter uses is computed, which may need the particle data of the whole snapshot.
+    """
+
+    def __init__(self, properties: dict, compute):
+        super().__init__(properties)
+        self._compute = compute
+
+    def __missing__(self, key):
+        if key not in MASS_COLUMNS:
+            raise KeyError(key)
+        self[key] = value = self._compute(key)
+        return value
 
 
 def simulation_name(snapshot_path: str | Path) -> str:
@@ -90,7 +113,9 @@ class PynbodyDataset:
             the snapshot.
         columns (list[str] | None): Columns to extract: "subhalo_id", "snapshot",
             "simulation" (the name of the simulation directory, see
-            `simulation_name()`), or any halo catalogue property (e.g. "SubhaloSFR"). Which properties
+            `simulation_name()`), "stars_mass", "gas_mass", "dm_mass" (the
+            total mass of a component in Msol, for any catalogue, see
+            `component_mass()`), or any halo catalogue property (e.g. "SubhaloSFR"). Which properties
             exist depends on the catalogue format; some (e.g. EAGLE, AdaptaHOP)
             provide none. Defaults to `["subhalo_id"]`.
         halos_args (dict | None): Keyword arguments for pynbody's `halos()`,
@@ -126,7 +151,8 @@ class PynbodyDataset:
 
         # Only the catalogue arrays are read here, no particle data.
         self.properties = self.halos.get_properties_all_halos()
-        missing = [col for col in self.columns if col not in (*RECORD_COLUMNS, *self.properties)]
+        self._table: _Table | None = None
+        missing = [col for col in self.columns if col not in (*RECORD_COLUMNS, *MASS_COLUMNS, *self.properties)]
         if missing:
             raise KeyError(f"Columns {missing} are not in the halo catalogue, available: {sorted(self.properties)}")
         self.center_properties = next(
@@ -157,8 +183,73 @@ class PynbodyDataset:
         return len(self.halo_numbers)
 
     def table(self) -> dict:
-        """Halo catalogue properties of all subhalos, indexed like the records."""
-        return self.properties
+        """Halo catalogue properties of all subhalos, indexed like the records.
+
+        The `MASS_COLUMNS` ("stars_mass", "gas_mass", "dm_mass") are available as well, and computed on first
+        access (see `component_mass()`).
+        """
+        if self._table is None:
+            self._table = _Table(self.properties, self._mass_column)
+        return self._table
+
+    def _mass_column(self, column: str) -> SimArray:
+        return self.component_mass(MASS_COLUMNS[column])
+
+    def component_mass(self, component: str) -> SimArray:
+        """Total mass of the `component` ("stars", "gas" or "dm") of each halo in Msol, indexed like the records.
+
+        Taken from the mass per particle type of SUBFIND HDF catalogues (e.g.
+        `SubhaloMassType`), with the particle types of the component in this
+        snapshot, or else summed over the particles that the catalogue assigns
+        to each halo, which reads the masses of all particles of the component.
+        """
+        if component not in COMPONENTS:
+            raise ValueError(f"component must be one of {list(COMPONENTS)}, got {component!r}")
+        family = pynbody.family.get_family(COMPONENTS[component])
+        mass = self._catalogue_mass(family)
+        return self._summed_particle_masses(family) if mass is None else mass
+
+    def _catalogue_mass(self, family) -> SimArray | None:
+        """Mass of the `family` particles of each halo from the catalogue's mass per particle type, if it has one."""
+        name = next((key for key in MASS_TYPE_PROPERTIES if np.ndim(self.properties.get(key)) == 2), None)
+        family_to_group = getattr(self.snapshot, "_family_to_group_map", None)
+        if name is None or family_to_group is None:
+            return None
+        masses = self.properties[name]
+        matches = [PARTICLE_TYPE.fullmatch(group) for group in family_to_group.get(family, [])]
+        if not all(matches):
+            return None
+        ptypes = [int(match.group(1)) for match in matches]
+        if any(ptype >= masses.shape[1] for ptype in ptypes):
+            return None
+        # A family without particle types in the snapshot gives zeros.
+        return physical_units(masses[:, ptypes].sum(axis=1))
+
+    def _summed_particle_masses(self, family) -> SimArray:
+        """Mass of the `family` particles of each halo, summed over the particles that the catalogue lists.
+
+        A particle in nested halos counts for each of them, as halo membership
+        is taken from the particle list of each halo.
+        """
+        try:
+            indices = self.halos._get_all_particle_indices_cached()
+        except NotImplementedError:
+            raise ValueError(
+                f"{type(self.halos).__name__} provides no mass per particle type and cannot list the particles of "
+                "all halos, so the mass of a component is not available."
+            ) from None
+        totals = np.zeros(len(self))
+        if family in self.snapshot.families():
+            family_slice = self.snapshot._get_family_slice(family)
+            masses = in_units(self.snapshot[family]["mass"], "Msol").astype(np.float64)
+            positions = np.asarray(indices.particle_index_list) - family_slice.start
+            in_family = (positions >= 0) & (positions < len(masses))
+            weights = np.zeros(len(positions))
+            weights[in_family] = masses[positions[in_family]]
+            cumulative = np.concatenate([[0.0], np.cumsum(weights)])
+            start, stop = np.asarray(indices.particle_index_list_boundaries).T
+            totals = cumulative[stop] - cumulative[start]
+        return SimArray(totals, "Msol")
 
     def __getitem__(self, index: int) -> dict:
         data: dict = {}
@@ -170,7 +261,7 @@ class PynbodyDataset:
             elif col == "simulation":
                 data["simulation"] = self.simulation
             else:
-                data[col] = np.asarray(self.properties[col][index])
+                data[col] = np.asarray(self.table()[col][index])
         return data
 
     def halo(self, subhalo_id: int | np.integer):
@@ -414,13 +505,22 @@ class MultiSnapshotDataset(PynbodyDataset):
     def table(self) -> dict:
         """Halo catalogue properties of all subhalos of all snapshots, indexed like the records.
 
-        Only properties that all catalogues provide are included.
+        Only properties that all catalogues provide are included, and the
+        `MASS_COLUMNS`, computed on first access.
         """
         if self._table is None:
             tables = [dataset.table() for dataset in self.datasets]
             keys = [key for key in tables[0] if all(key in table for table in tables)]
-            self._table = {key: self._concatenate([table[key] for table in tables]) for key in keys}
+            self._table = _Table(
+                {key: self._concatenate([table[key] for table in tables]) for key in keys}, self._mass_column
+            )
         return self._table
+
+    def _mass_column(self, column: str):
+        return self._concatenate([dataset.table()[column] for dataset in self.datasets])
+
+    def component_mass(self, component: str):
+        return self.table()[f"{component}_mass"]
 
     @staticmethod
     def _concatenate(arrays: list):

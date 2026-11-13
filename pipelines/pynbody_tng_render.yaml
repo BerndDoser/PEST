@@ -14,8 +14,7 @@ extract:
 transform:
   - class_path: pest.FilterRange
     init_args:
-      column: SubhaloMassType
-      index: 4
+      column: stars_mass
       min: 1.0e10 Msol
   - class_path: pest.FilterRange
     # Only render subhalos flagged galaxies

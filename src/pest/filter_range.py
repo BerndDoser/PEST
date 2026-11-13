@@ -30,7 +30,7 @@ class FilterRange:
     before they are extracted, if the dataset provides a `table()`.
 
     Args:
-        column (str): Name of the column to filter on, e.g. "SubhaloMassType".
+        column (str): Name of the column to filter on, e.g. "stars_mass".
         min (float | str): Lower limit (default -inf), as a float in `units`
             or a unit string, e.g. "1.0e10 Msol".
         max (float | str): Upper limit (default inf), as a float in `units`

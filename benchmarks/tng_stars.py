@@ -61,7 +61,7 @@ def main():
     pynbody.config["number_of_threads"] = args.threads
     dataset, seconds = timed(PynbodyDataset, args.snapshot_path)
     print(f"Opened the snapshot and catalogue in {seconds:.1f}s")
-    stellar_mass = FilterRange("SubhaloMassType", index=4, min=args.min_mass, max=args.max_mass, units="Msol")
+    stellar_mass = FilterRange("stars_mass", min=args.min_mass, max=args.max_mass, units="Msol")
     subhalo_ids = dataset.halo_numbers[stellar_mass.mask(dataset.table())][: args.count]
     if len(subhalo_ids) == 0:
         raise SystemExit("No subhalos in the stellar mass range.")
